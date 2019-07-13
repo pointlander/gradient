@@ -13,3 +13,6 @@ https://github.com/sakjain92/govec
 # Optimizing Go programs by AVX2 using Auto-Vectorization in LLVM.
 https://medium.com/@c_bata_/optimizing-go-by-avx2-using-auto-vectorization-in-llvm-118f7b366969  
 https://github.com/stuartcarnie/go-simd  
+
+# Quantum Computation Simulator written in golang
+https://github.com/itsubaki/q  
