@@ -108,31 +108,6 @@ func Gradient(a Meta) Continuation {
 	})
 }
 
-func basic() {
-	v1, v2 := V{0.5, 0}, V{0.4, 0}
-	v6 := func(a *V) {
-		a.D = 1
-	}
-	v5 := func(a *V) {
-		TanH(a)(v6)
-	}
-	v4 := func(a *V) {
-		Mul(a, &v2)(v5)
-	}
-	v3 := Add(&v1, &v2)
-	v3(v4)
-	fmt.Println(v1)
-	fmt.Println(v2)
-}
-
-func advanced() {
-	v1, v2 := V{0.5, 0}, V{0.4, 0}
-	Gradient(TanHOp(MulOp(v2.Value(), AddOp(v1.Value(), v2.Value()))))
-	fmt.Println(v1)
-	fmt.Println(v2)
-}
-
 func main() {
-	basic()
-	advanced()
+	fmt.Println("gradient")
 }
