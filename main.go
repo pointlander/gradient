@@ -9,63 +9,114 @@ import (
 	"math"
 )
 
-type NumR struct {
-	x float64
-	d float64
-}
+type (
+	// V is a value
+	V struct {
+		X float64 // the value
+		D float64 // the derivative
+	}
+	// Continuation is a continuation
+	Continuation func(a *V)
+	// Meta is a function that takes a continuation and return a continuation
+	Meta func(k Continuation) Continuation
+	// Unary is a unary function
+	Unary func(a *V) func(k Continuation)
+	// Binary is a binary function
+	Binary func(a, b *V) func(k Continuation)
+)
 
-func Panic(a *NumR) {
+// Panic marks a place we should never get to
+func Panic(a *V) {
 	panic("should not be here")
 }
 
-func (a *NumR) Value() Meta {
+// Value returns a meta for the value
+func (a *V) Value() Meta {
 	return func(k Continuation) Continuation {
 		k(a)
 		return Panic
 	}
 }
 
-type Continuation func(a *NumR)
-type Unary func(a *NumR) func(k Continuation)
-type Binary func(a, b *NumR) func(k Continuation)
-type Meta func(k Continuation) Continuation
-
-func Add(a, b *NumR) func(k Continuation) {
+// Add adds two numbers
+func Add(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
-		c := NumR{a.x + b.x, 0}
+		c := V{a.X + b.X, 0}
 		k(&c)
-		a.d += c.d
-		b.d += c.d
+		a.D += c.D
+		b.D += c.D
 	}
 }
 
-func Mul(a, b *NumR) func(k Continuation) {
+// Mul multiplies two numbers
+func Mul(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
-		c := NumR{a.x * b.x, 0}
+		c := V{a.X * b.X, 0}
 		k(&c)
-		a.d += b.x * c.d
-		b.d += a.x * c.d
+		a.D += b.X * c.D
+		b.D += a.X * c.D
 	}
 }
 
-func TanH(a *NumR) func(k Continuation) {
+// TanH the hyperbolic tangent of a number
+func TanH(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		i, j := math.Exp(a.x), math.Exp(-a.x)
-		c := NumR{(i - j) / (i + j), 0}
+		i, j := math.Exp(a.X), math.Exp(-a.X)
+		c := V{(i - j) / (i + j), 0}
 		k(&c)
-		a.d += (1 - c.x*c.x) * c.d
+		a.D += (1 - c.X*c.X) * c.D
 	}
+}
+
+// B converts a binary function into an operator
+func B(op Binary) func(a, b Meta) Meta {
+	return func(a, b Meta) Meta {
+		return func(k Continuation) Continuation {
+			return a(func(a *V) {
+				b(func(b *V) {
+					op(a, b)(k)
+				})
+			})
+		}
+	}
+}
+
+// U converts a unary function into an operator
+func U(op Unary) func(a Meta) Meta {
+	return func(a Meta) Meta {
+		return func(k Continuation) Continuation {
+			return a(func(b *V) {
+				op(b)(k)
+			})
+		}
+	}
+}
+
+var (
+	// AddOp adds two numbers
+	AddOp = B(Add)
+	// MulOp multiplies two numbers
+	MulOp = B(Mul)
+	//TanHOp the hyperbolic tangent of a number
+	TanHOp = U(TanH)
+)
+
+// Gradient computes the gradient
+func Gradient(a Meta) Continuation {
+	return a(func(a *V) {
+		a.D = 1
+	})
 }
 
 func basic() {
-	v1, v2 := NumR{0.5, 0}, NumR{0.4, 0}
-	v6 := func(a *NumR) {
-		a.d = 1
+	v1, v2 := V{0.5, 0}, V{0.4, 0}
+	v6 := func(a *V) {
+		a.D = 1
 	}
-	v5 := func(a *NumR) {
+	v5 := func(a *V) {
 		TanH(a)(v6)
 	}
-	v4 := func(a *NumR) {
+	v4 := func(a *V) {
 		Mul(a, &v2)(v5)
 	}
 	v3 := Add(&v1, &v2)
@@ -74,43 +125,9 @@ func basic() {
 	fmt.Println(v2)
 }
 
-func B(op Binary) func(a, b Meta) Meta {
-	return func(a, b Meta) Meta {
-		return func(k Continuation) Continuation {
-			return b(func(b *NumR) {
-				a(func(a *NumR) {
-					op(a, b)(k)
-				})
-			})
-		}
-	}
-}
-
-func U(op Unary) func(a Meta) Meta {
-	return func(a Meta) Meta {
-		return func(k Continuation) Continuation {
-			return a(func(b *NumR) {
-				op(b)(k)
-			})
-		}
-	}
-}
-
-var (
-	AddOp  = B(Add)
-	MulOp  = B(Mul)
-	TanHOp = U(TanH)
-)
-
-func Grad(a Meta) Continuation {
-	return a(func(a *NumR) {
-		a.d = 1
-	})
-}
-
 func advanced() {
-	v1, v2 := NumR{0.5, 0}, NumR{0.4, 0}
-	Grad(TanHOp(MulOp(v2.Value(), AddOp(v1.Value(), v2.Value()))))
+	v1, v2 := V{0.5, 0}, V{0.4, 0}
+	Gradient(TanHOp(MulOp(v2.Value(), AddOp(v1.Value(), v2.Value()))))
 	fmt.Println(v1)
 	fmt.Println(v2)
 }
