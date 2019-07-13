@@ -6,6 +6,7 @@ package gradient
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 )
@@ -96,4 +97,124 @@ func TestXORNetwork(t *testing.T) {
 			t.Fatal("output should be 0")
 		}
 	}
+}
+
+func TestSame(t *testing.T) {
+	type Dual struct {
+		Val, Der float64
+	}
+	One := Dual{Val: 1.0}
+
+	neg := func(d Dual) Dual {
+		return Dual{
+			Val: -d.Val,
+			Der: -d.Der,
+		}
+	}
+	add := func(u, v Dual) Dual {
+		return Dual{
+			Val: u.Val + v.Val,
+			Der: u.Der + v.Der,
+		}
+	}
+	sub := func(u, v Dual) Dual {
+		return Dual{
+			Val: u.Val - v.Val,
+			Der: u.Der - v.Der,
+		}
+	}
+	mul := func(u, v Dual) Dual {
+		return Dual{
+			Val: u.Val * v.Val,
+			Der: u.Der*v.Val + u.Val*v.Der,
+		}
+	}
+	div := func(u, v Dual) Dual {
+		return Dual{
+			Val: u.Val / v.Val,
+			Der: (u.Der*v.Val - u.Val*v.Der) / (v.Val * v.Val),
+		}
+	}
+	sin := func(d Dual) Dual {
+		return Dual{
+			Val: math.Sin(d.Val),
+			Der: d.Der * math.Cos(d.Val),
+		}
+	}
+	cos := func(d Dual) Dual {
+		return Dual{
+			Val: math.Cos(d.Val),
+			Der: -d.Der * math.Sin(d.Val),
+		}
+	}
+	exp := func(d Dual) Dual {
+		return Dual{
+			Val: math.Exp(d.Val),
+			Der: d.Der * math.Exp(d.Val),
+		}
+	}
+	log := func(d Dual) Dual {
+		return Dual{
+			Val: math.Log(d.Val),
+			Der: d.Der / d.Val,
+		}
+	}
+	sigmoid := func(d Dual) Dual {
+		e := exp(d)
+		return div(e, add(e, One))
+	}
+	tanh := func(d Dual) Dual {
+		i, j := exp(d), exp(neg(d))
+		return div(sub(i, j), add(i, j))
+	}
+
+	round := func(a float64) float64 {
+		return math.Round(a*1000000) / 1000000
+	}
+	testA := func(name string, op func(a Meta) Meta, golden func(d Dual) Dual) {
+		w1, w2 := V{0.5, 0}, V{0.4, 0}
+		Gradient(op(MulOp(w2.Value(), AddOp(w1.Value(), w2.Value()))))
+
+		d1, d2 := Dual{0.5, 0}, Dual{0.4, 0}
+		d1.Der = 1
+		output := golden(mul(d2, add(d1, d2)))
+		if round(output.Der) != round(w1.D) {
+			t.Fatalf("a1 %s %f %f", name, output.Der, w1.D)
+		}
+		d1.Der = 0
+		d2.Der = 1
+		output = golden(mul(d2, add(d1, d2)))
+		if round(output.Der) != round(w2.D) {
+			t.Fatalf("a2 %s %f %f", name, output.Der, w2.D)
+		}
+	}
+	testA("sin", SinOp, sin)
+	testA("cos", CosOp, cos)
+	testA("exp", ExpOp, exp)
+	testA("log", LogOp, log)
+	testA("sigmoid", SigmoidOp, sigmoid)
+	testA("tanh", TanHOp, tanh)
+	testB := func(name string, op func(a Meta) Meta, golden func(d Dual) Dual) {
+		w1, w2 := V{0.5, 0}, V{0.4, 0}
+		Gradient(op(DivOp(w2.Value(), SubOp(w1.Value(), w2.Value()))))
+
+		d1, d2 := Dual{0.5, 0}, Dual{0.4, 0}
+		d1.Der = 1
+		output := golden(div(d2, sub(d1, d2)))
+		if round(output.Der) != round(w1.D) {
+			t.Fatalf("b1 %s %f %f", name, output.Der, w1.D)
+		}
+		d1.Der = 0
+		d2.Der = 1
+		output = golden(div(d2, sub(d1, d2)))
+		if round(output.Der) != round(w2.D) {
+			t.Fatalf("b2 %s %f %f", name, output.Der, w2.D)
+		}
+	}
+	testB("sin", SinOp, sin)
+	testB("cos", CosOp, cos)
+	testB("exp", ExpOp, exp)
+	testB("log", LogOp, log)
+	testB("sigmoid", SigmoidOp, sigmoid)
+	testB("tanh", TanHOp, tanh)
 }

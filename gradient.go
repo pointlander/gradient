@@ -109,7 +109,7 @@ func Log(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{math.Log(a.X), 0}
 		k(&c)
-		a.D += c.D / c.X
+		a.D += c.D / a.X
 	}
 }
 
