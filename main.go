@@ -181,8 +181,10 @@ var (
 )
 
 // Gradient computes the gradient
-func Gradient(a Meta) Continuation {
-	return a(func(a *V) {
+func Gradient(a Meta) (cost V) {
+	a(func(a *V) {
+		cost = *a
 		a.D = 1
 	})
+	return
 }
