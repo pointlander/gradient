@@ -49,13 +49,13 @@ func TestXORNetwork(t *testing.T) {
 		Delta float64
 	}
 
-	i1, i2, o, weights := V{}, V{}, V{}, [6]Weight{}
+	i1, i2, o, weights := V{}, V{}, V{}, [9]Weight{}
 	for i := range weights {
 		weights[i].X = random64(-1, 1)
 	}
-	n1 := SigmoidOp(AddOp(MulOp(i1.Value(), weights[0].Value()), MulOp(i2.Value(), weights[1].Value())))
-	n2 := SigmoidOp(AddOp(MulOp(i1.Value(), weights[2].Value()), MulOp(i2.Value(), weights[3].Value())))
-	n3 := SigmoidOp(AddOp(MulOp(n1, weights[4].Value()), MulOp(n2, weights[5].Value())))
+	n1 := SigmoidOp(AddOp(AddOp(MulOp(i1.Value(), weights[0].Value()), MulOp(i2.Value(), weights[1].Value())), weights[2].Value()))
+	n2 := SigmoidOp(AddOp(AddOp(MulOp(i1.Value(), weights[3].Value()), MulOp(i2.Value(), weights[4].Value())), weights[5].Value()))
+	n3 := SigmoidOp(AddOp(AddOp(MulOp(n1, weights[6].Value()), MulOp(n2, weights[7].Value())), weights[8].Value()))
 	d := SubOp(n3, o.Value())
 	cost := MulOp(d, d)
 
