@@ -16,3 +16,6 @@ https://github.com/stuartcarnie/go-simd
 
 # Quantum Computation Simulator written in golang
 https://github.com/itsubaki/q  
+
+# The Matrix Calculus You Need For Deep Learning
+https://explained.ai/matrix-calculus/index.html  
