@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package gradient
+package sf64
 
 import (
 	"math"
@@ -29,106 +29,141 @@ func Panic(a *V) {
 	panic("should not be here")
 }
 
-// Value returns a meta for the value
-func (a *V) Value() Meta {
+// Meta returns a meta for the value
+func (a *V) Meta() Meta {
 	return func(k Continuation) Continuation {
 		k(a)
 		return Panic
 	}
 }
 
+// Context is a function context
+type Context struct {
+	InferenceOnly bool
+}
+
 // Add adds two numbers
-func Add(a, b *V) func(k Continuation) {
+func (context *Context) Add(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{a.X + b.X, 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += c.D
 		b.D += c.D
 	}
 }
 
 // Sub subtracts two numbers
-func Sub(a, b *V) func(k Continuation) {
+func (context *Context) Sub(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{a.X - b.X, 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += c.D
 		b.D -= c.D
 	}
 }
 
 // Mul multiplies two numbers
-func Mul(a, b *V) func(k Continuation) {
+func (context *Context) Mul(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{a.X * b.X, 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += b.X * c.D
 		b.D += a.X * c.D
 	}
 }
 
 // Div divides two numbers
-func Div(a, b *V) func(k Continuation) {
+func (context *Context) Div(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{a.X / b.X, 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += c.D / b.X
 		b.D -= (c.D * a.X) / (b.X * b.X)
 	}
 }
 
 // Sin the sine of a number
-func Sin(a *V) func(k Continuation) {
+func (context *Context) Sin(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{math.Sin(a.X), 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += c.D * math.Cos(a.X)
 	}
 }
 
 // Cos the cosine of a number
-func Cos(a *V) func(k Continuation) {
+func (context *Context) Cos(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{math.Cos(a.X), 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D -= c.D * math.Sin(a.X)
 	}
 }
 
 // Exp the base e exponential
-func Exp(a *V) func(k Continuation) {
+func (context *Context) Exp(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{math.Exp(a.X), 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += c.D * c.X
 	}
 }
 
 // Log the natural logarithm
-func Log(a *V) func(k Continuation) {
+func (context *Context) Log(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{math.Log(a.X), 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += c.D / a.X
 	}
 }
 
 // Sigmoid the sigmoid of a number
-func Sigmoid(a *V) func(k Continuation) {
+func (context *Context) Sigmoid(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		i := math.Exp(a.X)
 		c := V{i / (i + 1), 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += c.D * c.X * (1 - c.X)
 	}
 }
 
 // TanH the hyperbolic tangent of a number
-func TanH(a *V) func(k Continuation) {
+func (context *Context) TanH(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		i, j := math.Exp(a.X), math.Exp(-a.X)
 		c := V{(i - j) / (i + j), 0}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		a.D += (1 - c.X*c.X) * c.D
 	}
 }
@@ -158,26 +193,28 @@ func U(op Unary) func(a Meta) Meta {
 }
 
 var (
-	// AddOp adds two numbers
-	AddOp = B(Add)
-	// SubOp subtracts two numbers
-	SubOp = B(Sub)
-	// MulOp multiplies two numbers
-	MulOp = B(Mul)
-	// DivOp divides two numbers
-	DivOp = B(Div)
-	// SinOp the sine of a number
-	SinOp = U(Sin)
-	// CosOp the cosine of a number
-	CosOp = U(Cos)
-	// ExpOp the base e exponential
-	ExpOp = U(Exp)
-	// LogOp the natural logarithm
-	LogOp = U(Log)
-	// SigmoidOp the sigmoid of a number
-	SigmoidOp = U(Sigmoid)
-	//TanHOp the hyperbolic tangent of a number
-	TanHOp = U(TanH)
+	// Static is the static context
+	Static Context
+	// Add adds two numbers
+	Add = B(Static.Add)
+	// Sub subtracts two numbers
+	Sub = B(Static.Sub)
+	// Mul multiplies two numbers
+	Mul = B(Static.Mul)
+	// Div divides two numbers
+	Div = B(Static.Div)
+	// Sin the sine of a number
+	Sin = U(Static.Sin)
+	// Cos the cosine of a number
+	Cos = U(Static.Cos)
+	// Exp the base e exponential
+	Exp = U(Static.Exp)
+	// Log the natural logarithm
+	Log = U(Static.Log)
+	// Sigmoid the sigmoid of a number
+	Sigmoid = U(Static.Sigmoid)
+	//TanH the hyperbolic tangent of a number
+	TanH = U(Static.TanH)
 )
 
 // Gradient computes the gradient
