@@ -25,21 +25,54 @@ type (
 	Binary func(a, b *V) func(k Continuation)
 )
 
+// NewV create a new tensor value
+func NewV(s ...int) V {
+	if len(s) == 1 {
+		s = append(s, 1)
+	}
+	size := s[0] * s[1]
+	return V{
+		X: make([]float64, size),
+		D: make([]float64, size),
+		S: s,
+	}
+}
+
 // Panic marks a place we should never get to
 func Panic(a *V) {
 	panic("should not be here")
 }
 
-// Value returns a meta for the value
-func (a *V) Value() Meta {
+// Meta returns a meta for the value
+func (a *V) Meta() Meta {
 	return func(k Continuation) Continuation {
 		k(a)
 		return Panic
 	}
 }
 
+// Zero zeros the partial derivatives
+func (a *V) Zero() {
+	for i := range a.D {
+		a.D[i] = 0
+	}
+}
+
+// Set sets the values and zeros the partial derivatives
+func (a *V) Set(values []float64) {
+	for i, value := range values {
+		a.X[i] = value
+	}
+	a.Zero()
+}
+
+// Context is a function context
+type Context struct {
+	InferenceOnly bool
+}
+
 // Add adds two tensors
-func Add(a, b *V) func(k Continuation) {
+func (context *Context) Add(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
 			panic("tensor needs to have two dimensions")
@@ -57,6 +90,9 @@ func Add(a, b *V) func(k Continuation) {
 			c.X = append(c.X, j+b.X[i])
 		}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		for i, j := range c.D {
 			a.D[i] += j
 			b.D[i] += j
@@ -65,7 +101,7 @@ func Add(a, b *V) func(k Continuation) {
 }
 
 // Sub subtracts two tensors
-func Sub(a, b *V) func(k Continuation) {
+func (context *Context) Sub(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
 			panic("tensor needs to have two dimensions")
@@ -83,6 +119,9 @@ func Sub(a, b *V) func(k Continuation) {
 			c.X = append(c.X, j-b.X[i])
 		}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		for i, j := range c.D {
 			a.D[i] += j
 			b.D[i] -= j
@@ -91,7 +130,7 @@ func Sub(a, b *V) func(k Continuation) {
 }
 
 // Mul multiplies two tensors
-func Mul(a, b *V) func(k Continuation) {
+func (context *Context) Mul(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
 			panic("tensor needs to have two dimensions")
@@ -115,6 +154,9 @@ func Mul(a, b *V) func(k Continuation) {
 			}
 		}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		index := 0
 		for i := 0; i < sizeC; i += c.S[0] {
 			for j := 0; j < sizeA; j += width {
@@ -129,7 +171,7 @@ func Mul(a, b *V) func(k Continuation) {
 }
 
 // Sigmoid computes the sigmoid of a vector
-func Sigmoid(a *V) func(k Continuation) {
+func (context *Context) Sigmoid(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		size := len(a.X)
 		c := V{
@@ -142,6 +184,9 @@ func Sigmoid(a *V) func(k Continuation) {
 			c.X = append(c.X, e/(e+1))
 		}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		for i, j := range c.D {
 			a.D[i] += j * c.X[i] * (1 - c.X[i])
 		}
@@ -149,7 +194,7 @@ func Sigmoid(a *V) func(k Continuation) {
 }
 
 // Sum sums a vector
-func Sum(a *V) func(k Continuation) {
+func (context *Context) Sum(a *V) func(k Continuation) {
 	return func(k Continuation) {
 		c := V{
 			X: make([]float64, 1),
@@ -160,6 +205,9 @@ func Sum(a *V) func(k Continuation) {
 			c.X[0] += j
 		}
 		k(&c)
+		if context.InferenceOnly {
+			return
+		}
 		for i := range a.D {
 			a.D[i] += c.D[0]
 		}
@@ -191,16 +239,18 @@ func U(op Unary) func(a Meta) Meta {
 }
 
 var (
-	// AddOp adds two numbers
-	AddOp = B(Add)
-	// SubOp subtracts two numbers
-	SubOp = B(Sub)
-	// MulOp multiplies two numbers
-	MulOp = B(Mul)
-	// SigmoidOp the sigmoid of a number
-	SigmoidOp = U(Sigmoid)
-	// SumOp sums a vector
-	SumOp = U(Sum)
+	// Static is the static context
+	Static Context
+	// Add adds two numbers
+	Add = B(Static.Add)
+	// Sub subtracts two numbers
+	Sub = B(Static.Sub)
+	// Mul multiplies two numbers
+	Mul = B(Static.Mul)
+	// Sigmoid the sigmoid of a number
+	Sigmoid = U(Static.Sigmoid)
+	// Sum sums a vector
+	Sum = U(Static.Sum)
 )
 
 // Gradient computes the gradient

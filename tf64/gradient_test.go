@@ -23,7 +23,8 @@ func TestMul(t *testing.T) {
 		S: []int{2, 1},
 		D: make([]float64, 2),
 	}
-	Mul(&a, &b)(func(a *V) {
+	var context Context
+	context.Mul(&a, &b)(func(a *V) {
 		if a.X[0] != 5 || a.X[1] != 11 {
 			t.Fatal("mul failed", a.X)
 		}
@@ -33,7 +34,7 @@ func TestMul(t *testing.T) {
 		S: []int{2, 2},
 		D: make([]float64, 4),
 	}
-	Mul(&a, &e)(func(a *V) {
+	context.Mul(&a, &e)(func(a *V) {
 		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
 			t.Fatal("mul failed", a.X)
 		}
@@ -55,42 +56,15 @@ func TestXORNetwork(t *testing.T) {
 	for i := range weights {
 		weights[i].X = random64(-1, 1)
 	}
-	n1 := sf64.SigmoidOp(sf64.AddOp(sf64.AddOp(sf64.MulOp(i1.Value(), weights[0].Value()), sf64.MulOp(i2.Value(), weights[1].Value())), weights[2].Value()))
-	n2 := sf64.SigmoidOp(sf64.AddOp(sf64.AddOp(sf64.MulOp(i1.Value(), weights[3].Value()), sf64.MulOp(i2.Value(), weights[4].Value())), weights[5].Value()))
-	n3 := sf64.SigmoidOp(sf64.AddOp(sf64.AddOp(sf64.MulOp(n1, weights[6].Value()), sf64.MulOp(n2, weights[7].Value())), weights[8].Value()))
-	ds := sf64.SubOp(n3, o.Value())
-	costs := sf64.MulOp(ds, ds)
+	n1 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(i1.Meta(), weights[0].Meta()), sf64.Mul(i2.Meta(), weights[1].Meta())), weights[2].Meta()))
+	n2 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(i1.Meta(), weights[3].Meta()), sf64.Mul(i2.Meta(), weights[4].Meta())), weights[5].Meta()))
+	n3 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(n1, weights[6].Meta()), sf64.Mul(n2, weights[7].Meta())), weights[8].Meta()))
+	ds := sf64.Sub(n3, o.Meta())
+	costs := sf64.Mul(ds, ds)
 
-	input := V{
-		X: make([]float64, 2),
-		D: make([]float64, 2),
-		S: []int{2, 1},
-	}
-	output := V{
-		X: make([]float64, 1),
-		D: make([]float64, 1),
-		S: []int{1, 1},
-	}
-	w1 := V{
-		X: make([]float64, 4),
-		D: make([]float64, 4),
-		S: []int{2, 2},
-	}
-	b1 := V{
-		X: make([]float64, 2),
-		D: make([]float64, 2),
-		S: []int{2, 1},
-	}
-	w2 := V{
-		X: make([]float64, 2),
-		D: make([]float64, 2),
-		S: []int{2, 1},
-	}
-	b2 := V{
-		X: make([]float64, 1),
-		D: make([]float64, 1),
-		S: []int{1, 1},
-	}
+	input, output := NewV(2), NewV(1)
+	w1, b1 := NewV(2, 2), NewV(2)
+	w2, b2 := NewV(2), NewV(1)
 	parameters := []*V{&w1, &b1, &w2, &b2}
 	w1.X[0] = weights[0].X
 	w1.X[1] = weights[1].X
@@ -105,10 +79,10 @@ func TestXORNetwork(t *testing.T) {
 	for _, p := range parameters {
 		deltas = append(deltas, make([]float64, len(p.X)))
 	}
-	l1 := SigmoidOp(AddOp(MulOp(w1.Value(), input.Value()), b1.Value()))
-	l2 := SigmoidOp(AddOp(MulOp(w2.Value(), l1), b2.Value()))
-	d := SubOp(l2, output.Value())
-	cost := MulOp(d, d)
+	l1 := Sigmoid(Add(Mul(w1.Meta(), input.Meta()), b1.Meta()))
+	l2 := Sigmoid(Add(Mul(w2.Meta(), l1), b2.Meta()))
+	d := Sub(l2, output.Meta())
+	cost := Mul(d, d)
 
 	round := func(a float64) float64 {
 		return math.Round(a*1000000) / 1000000
@@ -135,17 +109,10 @@ func TestXORNetwork(t *testing.T) {
 		total, totals := 0.0, 0.0
 		for j := range data {
 			for _, p := range parameters {
-				for k := range p.D {
-					p.D[k] = 0
-				}
+				p.Zero()
 			}
-			for k := range input.D {
-				input.D[k] = 0
-			}
-			for k := range output.D {
-				output.D[k] = 0
-			}
-			input.X[0], input.X[1], output.X[0] = data[j][0], data[j][1], data[j][2]
+			input.Set(data[j][:2])
+			output.Set(data[j][2:])
 			total += Gradient(cost).X[0]
 			for k, p := range parameters {
 				for l, d := range p.D {
