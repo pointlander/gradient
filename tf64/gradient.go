@@ -170,6 +170,94 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 	}
 }
 
+// Sin the sine of a number
+func (context *Context) Sin(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		size := len(a.X)
+		c := V{
+			X: make([]float64, 0, size),
+			D: make([]float64, size),
+			S: []int{a.S[0], a.S[1]},
+		}
+		for _, j := range a.X {
+			c.X = append(c.X, math.Sin(j))
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		for i, j := range c.D {
+			a.D[i] += j * math.Cos(a.X[i])
+		}
+	}
+}
+
+// Cos the cosine of a tensor
+func (context *Context) Cos(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		size := len(a.X)
+		c := V{
+			X: make([]float64, 0, size),
+			D: make([]float64, size),
+			S: []int{a.S[0], a.S[1]},
+		}
+		for _, j := range a.X {
+			c.X = append(c.X, math.Cos(j))
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		for i, j := range c.D {
+			a.D[i] -= j * math.Sin(a.X[i])
+		}
+	}
+}
+
+// Exp the base e exponential of a tensor
+func (context *Context) Exp(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		size := len(a.X)
+		c := V{
+			X: make([]float64, 0, size),
+			D: make([]float64, size),
+			S: []int{a.S[0], a.S[1]},
+		}
+		for _, j := range a.X {
+			c.X = append(c.X, math.Exp(j))
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		for i, j := range c.D {
+			a.D[i] += j * c.X[i]
+		}
+	}
+}
+
+// Log the natural logarithm of a tensor
+func (context *Context) Log(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		size := len(a.X)
+		c := V{
+			X: make([]float64, 0, size),
+			D: make([]float64, size),
+			S: []int{a.S[0], a.S[1]},
+		}
+		for _, j := range a.X {
+			c.X = append(c.X, math.Log(j))
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		for i, j := range c.D {
+			a.D[i] += j / a.X[i]
+		}
+	}
+}
+
 // Sigmoid computes the sigmoid of a vector
 func (context *Context) Sigmoid(a *V) func(k Continuation) {
 	return func(k Continuation) {
@@ -189,6 +277,29 @@ func (context *Context) Sigmoid(a *V) func(k Continuation) {
 		}
 		for i, j := range c.D {
 			a.D[i] += j * c.X[i] * (1 - c.X[i])
+		}
+	}
+}
+
+// TanH the hyperbolic tangent of a tensor
+func (context *Context) TanH(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		size := len(a.X)
+		c := V{
+			X: make([]float64, 0, size),
+			D: make([]float64, size),
+			S: []int{a.S[0], a.S[1]},
+		}
+		for _, j := range a.X {
+			e1, e2 := math.Exp(j), math.Exp(-j)
+			c.X = append(c.X, (e1-e2)/(e1+e2))
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		for i, j := range c.D {
+			a.D[i] += j * (1 - c.X[i]*c.X[i])
 		}
 	}
 }
@@ -241,14 +352,24 @@ func U(op Unary) func(a Meta) Meta {
 var (
 	// Static is the static context
 	Static Context
-	// Add adds two numbers
+	// Add adds two tensors
 	Add = B(Static.Add)
-	// Sub subtracts two numbers
+	// Sub subtracts two tensors
 	Sub = B(Static.Sub)
-	// Mul multiplies two numbers
+	// Mul multiplies two tensors
 	Mul = B(Static.Mul)
-	// Sigmoid the sigmoid of a number
+	// Sin the sin of a tensors
+	Sin = U(Static.Sin)
+	// Cos the cosine of a tensor
+	Cos = U(Static.Cos)
+	// Exp the base e exponential of a tensor
+	Exp = U(Static.Exp)
+	// Log the natural logarithm of a tensor
+	Log = U(Static.Log)
+	// Sigmoid the sigmoid of a tensors
 	Sigmoid = U(Static.Sigmoid)
+	// TanH the hyperbolic tangent of a tensor
+	TanH = U(Static.TanH)
 	// Sum sums a vector
 	Sum = U(Static.Sum)
 )
