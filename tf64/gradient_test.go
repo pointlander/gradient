@@ -13,27 +13,18 @@ import (
 )
 
 func TestMul(t *testing.T) {
-	a := V{
-		X: []float64{1, 2, 3, 4},
-		S: []int{2, 2},
-		D: make([]float64, 4),
-	}
-	b := V{
-		X: []float64{1, 2},
-		S: []int{2, 1},
-		D: make([]float64, 2),
-	}
+	a := NewV(2, 2)
+	a.Set([]float64{1, 2, 3, 4})
+	b := NewV(2)
+	b.Set([]float64{1, 2})
 	var context Context
 	context.Mul(&a, &b)(func(a *V) {
 		if a.X[0] != 5 || a.X[1] != 11 {
 			t.Fatal("mul failed", a.X)
 		}
 	})
-	e := V{
-		X: []float64{1, 2, 3, 4},
-		S: []int{2, 2},
-		D: make([]float64, 4),
-	}
+	e := NewV(2, 2)
+	e.Set([]float64{1, 2, 3, 4})
 	context.Mul(&a, &e)(func(a *V) {
 		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
 			t.Fatal("mul failed", a.X)
@@ -66,15 +57,10 @@ func TestXORNetwork(t *testing.T) {
 	w1, b1 := NewV(2, 2), NewV(2)
 	w2, b2 := NewV(2), NewV(1)
 	parameters := []*V{&w1, &b1, &w2, &b2}
-	w1.X[0] = weights[0].X
-	w1.X[1] = weights[1].X
-	b1.X[0] = weights[2].X
-	w1.X[2] = weights[3].X
-	w1.X[3] = weights[4].X
-	b1.X[1] = weights[5].X
-	w2.X[0] = weights[6].X
-	w2.X[1] = weights[7].X
-	b2.X[0] = weights[8].X
+	w1.Set([]float64{weights[0].X, weights[1].X, weights[3].X, weights[4].X})
+	b1.Set([]float64{weights[2].X, weights[5].X})
+	w2.Set([]float64{weights[6].X, weights[7].X})
+	b2.Set([]float64{weights[8].X})
 	var deltas [][]float64
 	for _, p := range parameters {
 		deltas = append(deltas, make([]float64, len(p.X)))

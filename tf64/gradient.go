@@ -28,11 +28,11 @@ type (
 // NewV create a new tensor value
 func NewV(s ...int) V {
 	if len(s) == 1 {
-		s = append(s, 1)
+		s = []int{s[0], 1}
 	}
 	size := s[0] * s[1]
 	return V{
-		X: make([]float64, size),
+		X: make([]float64, 0, size),
 		D: make([]float64, size),
 		S: s,
 	}
@@ -61,6 +61,10 @@ func (a *V) Zero() {
 // Set sets the values and zeros the partial derivatives
 func (a *V) Set(values []float64) {
 	for i, value := range values {
+		if i >= len(a.X) {
+			a.X = append(a.X, value)
+			continue
+		}
 		a.X[i] = value
 	}
 	a.Zero()
@@ -80,12 +84,7 @@ func (context *Context) Add(a, b *V) func(k Continuation) {
 		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
 			panic("dimensions are not the same")
 		}
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for i, j := range a.X {
 			c.X = append(c.X, j+b.X[i])
 		}
@@ -109,12 +108,7 @@ func (context *Context) Sub(a, b *V) func(k Continuation) {
 		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
 			panic("dimensions are not the same")
 		}
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for i, j := range a.X {
 			c.X = append(c.X, j-b.X[i])
 		}
@@ -139,11 +133,8 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 		if width != b.S[0] {
 			panic("first dimension is not the same")
 		}
-		c := V{
-			S: []int{a.S[1], b.S[1]},
-		}
-		sizeA, sizeC := len(a.X), c.S[0]*c.S[1]
-		c.X, c.D = make([]float64, 0, sizeC), make([]float64, sizeC)
+		c := NewV(a.S[1], b.S[1])
+		sizeA, sizeC := len(a.X), len(c.D)
 		for i := 0; i < sizeC; i += c.S[0] {
 			for j := 0; j < sizeA; j += width {
 				sum := 0.0
@@ -173,12 +164,7 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 // Sin the sine of a number
 func (context *Context) Sin(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for _, j := range a.X {
 			c.X = append(c.X, math.Sin(j))
 		}
@@ -195,12 +181,7 @@ func (context *Context) Sin(a *V) func(k Continuation) {
 // Cos the cosine of a tensor
 func (context *Context) Cos(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for _, j := range a.X {
 			c.X = append(c.X, math.Cos(j))
 		}
@@ -217,12 +198,7 @@ func (context *Context) Cos(a *V) func(k Continuation) {
 // Exp the base e exponential of a tensor
 func (context *Context) Exp(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for _, j := range a.X {
 			c.X = append(c.X, math.Exp(j))
 		}
@@ -239,12 +215,7 @@ func (context *Context) Exp(a *V) func(k Continuation) {
 // Log the natural logarithm of a tensor
 func (context *Context) Log(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for _, j := range a.X {
 			c.X = append(c.X, math.Log(j))
 		}
@@ -261,12 +232,7 @@ func (context *Context) Log(a *V) func(k Continuation) {
 // Sigmoid computes the sigmoid of a vector
 func (context *Context) Sigmoid(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for _, j := range a.X {
 			e := math.Exp(j)
 			c.X = append(c.X, e/(e+1))
@@ -284,12 +250,7 @@ func (context *Context) Sigmoid(a *V) func(k Continuation) {
 // TanH the hyperbolic tangent of a tensor
 func (context *Context) TanH(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		size := len(a.X)
-		c := V{
-			X: make([]float64, 0, size),
-			D: make([]float64, size),
-			S: []int{a.S[0], a.S[1]},
-		}
+		c := NewV(a.S...)
 		for _, j := range a.X {
 			e1, e2 := math.Exp(j), math.Exp(-j)
 			c.X = append(c.X, (e1-e2)/(e1+e2))
@@ -307,11 +268,7 @@ func (context *Context) TanH(a *V) func(k Continuation) {
 // Sum sums a vector
 func (context *Context) Sum(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		c := V{
-			X: make([]float64, 1),
-			D: make([]float64, 1),
-			S: []int{1, 1},
-		}
+		c := NewV(1)
 		for _, j := range a.X {
 			c.X[0] += j
 		}
