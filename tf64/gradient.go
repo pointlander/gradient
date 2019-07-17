@@ -151,12 +151,12 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 		}
 		index := 0
 		for i := 0; i < sizeB; i += width {
-			bv := b.X[i : i+width]
+			bv, bd := b.X[i:i+width], b.D[i:i+width]
 			for j := 0; j < sizeA; j += width {
-				av := a.X[j : j+width]
+				av, ad := a.X[j:j+width], a.D[j:j+width]
 				for k, bx := range bv {
-					a.D[k+j] += bx * c.D[index]
-					b.D[k+i] += av[k] * c.D[index]
+					ad[k] += bx * c.D[index]
+					bd[k] += av[k] * c.D[index]
 				}
 				index++
 			}
