@@ -134,12 +134,13 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 			panic("first dimension is not the same")
 		}
 		c := NewV(a.S[1], b.S[1])
-		sizeA, sizeC := len(a.X), len(c.D)
-		for i := 0; i < sizeC; i += c.S[0] {
+		sizeA, sizeB := len(a.X), len(b.X)
+		for i := 0; i < sizeB; i += width {
+			bv := b.X[i : i+width]
 			for j := 0; j < sizeA; j += width {
-				sum := 0.0
-				for k := 0; k < width; k++ {
-					sum += a.X[k+j] * b.X[k+i]
+				av, sum := a.X[j:j+width], 0.0
+				for k, bx := range bv {
+					sum += av[k] * bx
 				}
 				c.X = append(c.X, sum)
 			}
@@ -149,11 +150,13 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 			return
 		}
 		index := 0
-		for i := 0; i < sizeC; i += c.S[0] {
+		for i := 0; i < sizeB; i += width {
+			bv := b.X[i : i+width]
 			for j := 0; j < sizeA; j += width {
-				for k := 0; k < width; k++ {
-					a.D[k+j] += b.X[k+i] * c.D[index]
-					b.D[k+i] += a.X[k+j] * c.D[index]
+				av := a.X[j : j+width]
+				for k, bx := range bv {
+					a.D[k+j] += bx * c.D[index]
+					b.D[k+i] += av[k] * c.D[index]
 				}
 				index++
 			}
