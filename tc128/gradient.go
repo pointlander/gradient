@@ -2,18 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf64
+package tc128
 
 import (
-	"math"
+	"math/cmplx"
 )
 
 type (
 	// V is a tensor value
 	V struct {
-		X []float64 // the tensor
-		D []float64 // the derivative
-		S []int     // the shape
+		X []complex128 // the tensor
+		D []complex128 // the derivative
+		S []int        // the shape
 	}
 	// Continuation is a continuation
 	Continuation func(a *V)
@@ -26,10 +26,10 @@ type (
 )
 
 var (
-	sin = math.Sin
-	cos = math.Cos
-	exp = math.Exp
-	log = math.Log
+	sin = cmplx.Sin
+	cos = cmplx.Cos
+	exp = cmplx.Exp
+	log = cmplx.Log
 )
 
 // NewV create a new tensor value
@@ -39,8 +39,8 @@ func NewV(s ...int) V {
 	}
 	size := s[0] * s[1]
 	return V{
-		X: make([]float64, 0, size),
-		D: make([]float64, size),
+		X: make([]complex128, 0, size),
+		D: make([]complex128, size),
 		S: s,
 	}
 }
@@ -66,7 +66,7 @@ func (a *V) Zero() {
 }
 
 // Set sets the values and zeros the partial derivatives
-func (a *V) Set(values []float64) {
+func (a *V) Set(values []complex128) {
 	for i, value := range values {
 		if i >= len(a.X) {
 			a.X = append(a.X, value)
@@ -145,7 +145,7 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 		for i := 0; i < sizeB; i += width {
 			bv := b.X[i : i+width]
 			for j := 0; j < sizeA; j += width {
-				av, sum := a.X[j:j+width], float64(0.0)
+				av, sum := a.X[j:j+width], complex128(0.0)
 				for k, bx := range bv {
 					sum += av[k] * bx
 				}

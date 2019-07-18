@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sf64
+package sf32
 
 import (
 	"math"
@@ -11,8 +11,8 @@ import (
 type (
 	// V is a value
 	V struct {
-		X float64 // the value
-		D float64 // the derivative
+		X float32 // the value
+		D float32 // the derivative
 	}
 	// Continuation is a continuation
 	Continuation func(a *V)
@@ -24,12 +24,18 @@ type (
 	Binary func(a, b *V) func(k Continuation)
 )
 
-var (
-	sin = math.Sin
-	cos = math.Cos
-	exp = math.Exp
-	log = math.Log
-)
+func sin(a float32) float32 {
+	return float32(math.Sin(float64(a)))
+}
+func cos(a float32) float32 {
+	return float32(math.Cos(float64(a)))
+}
+func exp(a float32) float32 {
+	return float32(math.Exp(float64(a)))
+}
+func log(a float32) float32 {
+	return float32(math.Log(float64(a)))
+}
 
 // Panic marks a place we should never get to
 func Panic(a *V) {

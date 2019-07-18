@@ -2,17 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sf64
+package {{.Package}}
 
 import (
+{{if eq .Type "float64"}}
 	"math"
+{{else if eq .Type "float32"}}
+  "math"
+{{else if eq .Type "complex128"}}
+  "math/cmplx"
+{{end}}
 )
 
 type (
 	// V is a value
 	V struct {
-		X float64 // the value
-		D float64 // the derivative
+		X {{.Type}} // the value
+		D {{.Type}} // the derivative
 	}
 	// Continuation is a continuation
 	Continuation func(a *V)
@@ -24,12 +30,34 @@ type (
 	Binary func(a, b *V) func(k Continuation)
 )
 
+{{if eq .Type "float64"}}
 var (
 	sin = math.Sin
 	cos = math.Cos
 	exp = math.Exp
 	log = math.Log
 )
+{{else if eq .Type "float32"}}
+func sin(a float32) float32 {
+	return float32(math.Sin(float64(a)))
+}
+func cos(a float32) float32 {
+	return float32(math.Cos(float64(a)))
+}
+func exp(a float32) float32 {
+	return float32(math.Exp(float64(a)))
+}
+func log(a float32) float32 {
+	return float32(math.Log(float64(a)))
+}
+{{else if eq .Type "complex128"}}
+var (
+	sin = cmplx.Sin
+	cos = cmplx.Cos
+	exp = cmplx.Exp
+	log = cmplx.Log
+)
+{{end}}
 
 // Panic marks a place we should never get to
 func Panic(a *V) {

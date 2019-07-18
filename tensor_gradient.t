@@ -2,17 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf64
+package {{.Package}}
 
 import (
+{{if eq .Type "float64"}}
 	"math"
+{{else if eq .Type "float32"}}
+  "math"
+{{else if eq .Type "complex128"}}
+  "math/cmplx"
+{{end}}
 )
 
 type (
 	// V is a tensor value
 	V struct {
-		X []float64 // the tensor
-		D []float64 // the derivative
+		X []{{.Type}} // the tensor
+		D []{{.Type}} // the derivative
 		S []int     // the shape
 	}
 	// Continuation is a continuation
@@ -25,12 +31,34 @@ type (
 	Binary func(a, b *V) func(k Continuation)
 )
 
+{{if eq .Type "float64"}}
 var (
 	sin = math.Sin
 	cos = math.Cos
 	exp = math.Exp
 	log = math.Log
 )
+{{else if eq .Type "float32"}}
+func sin(a float32) float32 {
+	return float32(math.Sin(float64(a)))
+}
+func cos(a float32) float32 {
+	return float32(math.Cos(float64(a)))
+}
+func exp(a float32) float32 {
+	return float32(math.Exp(float64(a)))
+}
+func log(a float32) float32 {
+	return float32(math.Log(float64(a)))
+}
+{{else if eq .Type "complex128"}}
+var (
+	sin = cmplx.Sin
+	cos = cmplx.Cos
+	exp = cmplx.Exp
+	log = cmplx.Log
+)
+{{end}}
 
 // NewV create a new tensor value
 func NewV(s ...int) V {
@@ -39,8 +67,8 @@ func NewV(s ...int) V {
 	}
 	size := s[0] * s[1]
 	return V{
-		X: make([]float64, 0, size),
-		D: make([]float64, size),
+		X: make([]{{.Type}}, 0, size),
+		D: make([]{{.Type}}, size),
 		S: s,
 	}
 }
@@ -66,7 +94,7 @@ func (a *V) Zero() {
 }
 
 // Set sets the values and zeros the partial derivatives
-func (a *V) Set(values []float64) {
+func (a *V) Set(values []{{.Type}}) {
 	for i, value := range values {
 		if i >= len(a.X) {
 			a.X = append(a.X, value)
@@ -145,7 +173,7 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 		for i := 0; i < sizeB; i += width {
 			bv := b.X[i : i+width]
 			for j := 0; j < sizeA; j += width {
-				av, sum := a.X[j:j+width], float64(0.0)
+				av, sum := a.X[j:j+width], {{.Type}}(0.0)
 				for k, bx := range bv {
 					sum += av[k] * bx
 				}

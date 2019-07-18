@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package tf64
+package tf32
 
 import (
 	"math"
@@ -11,8 +11,8 @@ import (
 type (
 	// V is a tensor value
 	V struct {
-		X []float64 // the tensor
-		D []float64 // the derivative
+		X []float32 // the tensor
+		D []float32 // the derivative
 		S []int     // the shape
 	}
 	// Continuation is a continuation
@@ -25,12 +25,18 @@ type (
 	Binary func(a, b *V) func(k Continuation)
 )
 
-var (
-	sin = math.Sin
-	cos = math.Cos
-	exp = math.Exp
-	log = math.Log
-)
+func sin(a float32) float32 {
+	return float32(math.Sin(float64(a)))
+}
+func cos(a float32) float32 {
+	return float32(math.Cos(float64(a)))
+}
+func exp(a float32) float32 {
+	return float32(math.Exp(float64(a)))
+}
+func log(a float32) float32 {
+	return float32(math.Log(float64(a)))
+}
 
 // NewV create a new tensor value
 func NewV(s ...int) V {
@@ -39,8 +45,8 @@ func NewV(s ...int) V {
 	}
 	size := s[0] * s[1]
 	return V{
-		X: make([]float64, 0, size),
-		D: make([]float64, size),
+		X: make([]float32, 0, size),
+		D: make([]float32, size),
 		S: s,
 	}
 }
@@ -66,7 +72,7 @@ func (a *V) Zero() {
 }
 
 // Set sets the values and zeros the partial derivatives
-func (a *V) Set(values []float64) {
+func (a *V) Set(values []float32) {
 	for i, value := range values {
 		if i >= len(a.X) {
 			a.X = append(a.X, value)
@@ -145,7 +151,7 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 		for i := 0; i < sizeB; i += width {
 			bv := b.X[i : i+width]
 			for j := 0; j < sizeA; j += width {
-				av, sum := a.X[j:j+width], float64(0.0)
+				av, sum := a.X[j:j+width], float32(0.0)
 				for k, bx := range bv {
 					sum += av[k] * bx
 				}

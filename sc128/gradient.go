@@ -2,17 +2,17 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package sf64
+package sc128
 
 import (
-	"math"
+	"math/cmplx"
 )
 
 type (
 	// V is a value
 	V struct {
-		X float64 // the value
-		D float64 // the derivative
+		X complex128 // the value
+		D complex128 // the derivative
 	}
 	// Continuation is a continuation
 	Continuation func(a *V)
@@ -25,10 +25,10 @@ type (
 )
 
 var (
-	sin = math.Sin
-	cos = math.Cos
-	exp = math.Exp
-	log = math.Log
+	sin = cmplx.Sin
+	cos = cmplx.Cos
+	exp = cmplx.Exp
+	log = cmplx.Log
 )
 
 // Panic marks a place we should never get to
