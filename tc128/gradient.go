@@ -343,7 +343,7 @@ func (context *Context) Sum(a *V) func(k Continuation) {
 	}
 }
 
-// Quadratic computes the quadratic of two tensors
+// Quadratic computes the quadratic cost of two tensors
 func (context *Context) Quadratic(a, b *V) func(k Continuation) {
 	return func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
@@ -357,15 +357,15 @@ func (context *Context) Quadratic(a, b *V) func(k Continuation) {
 			p := (j - b.X[i])
 			sum += p * p
 		}
-		c.X = append(c.X, sum)
+		c.X = append(c.X, .5*sum)
 		k(&c)
 		if context.InferenceOnly {
 			return
 		}
 		d := c.D[0]
 		for i, j := range a.X {
-			a.D[i] += 2 * (j - b.X[i]) * d
-			b.D[i] += 2 * (b.X[i] - j) * d
+			a.D[i] += (j - b.X[i]) * d
+			b.D[i] += (b.X[i] - j) * d
 		}
 	}
 }
@@ -421,7 +421,7 @@ var (
 	Softmax = U(Static.Softmax)
 	// Sum sums a vector
 	Sum = U(Static.Sum)
-	// Quadratic computes the quadratic of two tensors
+	// Quadratic computes the quadratic cost of two tensors
 	Quadratic = B(Static.Quadratic)
 )
 

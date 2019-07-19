@@ -51,7 +51,8 @@ func TestXORNetwork(t *testing.T) {
 	n2 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(i1.Meta(), weights[3].Meta()), sf64.Mul(i2.Meta(), weights[4].Meta())), weights[5].Meta()))
 	n3 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(n1, weights[6].Meta()), sf64.Mul(n2, weights[7].Meta())), weights[8].Meta()))
 	ds := sf64.Sub(n3, o.Meta())
-	costs := sf64.Mul(ds, ds)
+	half := sf64.V{X: .5}
+	costs := sf64.Mul(sf64.Mul(ds, ds), half.Meta())
 
 	input, output := NewV(2), NewV(1)
 	w1, b1 := NewV(2, 2), NewV(2)
