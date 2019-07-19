@@ -67,8 +67,7 @@ func TestXORNetwork(t *testing.T) {
 	}
 	l1 := Sigmoid(Add(Mul(w1.Meta(), input.Meta()), b1.Meta()))
 	l2 := Sigmoid(Add(Mul(w2.Meta(), l1), b2.Meta()))
-	d := Sub(l2, output.Meta())
-	cost := Mul(d, d)
+	cost := Quadratic(l2, output.Meta())
 
 	round := func(a float64) float64 {
 		return math.Round(a*1000000) / 1000000

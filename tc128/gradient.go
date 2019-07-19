@@ -171,6 +171,30 @@ func (context *Context) Mul(a, b *V) func(k Continuation) {
 	}
 }
 
+// Hadamard computes the hadamard product of two tensors
+func (context *Context) Hadamard(a, b *V) func(k Continuation) {
+	return func(k Continuation) {
+		if len(a.S) != 2 || len(b.S) != 2 {
+			panic("tensor needs to have two dimensions")
+		}
+		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+			panic("dimensions are not the same")
+		}
+		c := NewV(a.S...)
+		for i, j := range a.X {
+			c.X = append(c.X, j*b.X[i])
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		for i, j := range c.D {
+			a.D[i] += j * b.X[i]
+			b.D[i] += j * a.X[i]
+		}
+	}
+}
+
 // Sin the sine of a number
 func (context *Context) Sin(a *V) func(k Continuation) {
 	return func(k Continuation) {
@@ -252,7 +276,8 @@ func (context *Context) Sigmoid(a *V) func(k Continuation) {
 			return
 		}
 		for i, j := range c.D {
-			a.D[i] += j * c.X[i] * (1 - c.X[i])
+			cx := c.X[i]
+			a.D[i] += j * cx * (1 - cx)
 		}
 	}
 }
@@ -270,7 +295,31 @@ func (context *Context) TanH(a *V) func(k Continuation) {
 			return
 		}
 		for i, j := range c.D {
-			a.D[i] += j * (1 - c.X[i]*c.X[i])
+			cx := c.X[i]
+			a.D[i] += j * (1 - cx*cx)
+		}
+	}
+}
+
+// Softmax is the softmax function
+func (context *Context) Softmax(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		c, sum := NewV(a.S...), complex128(0.0)
+		for _, j := range a.X {
+			e := exp(j)
+			sum += e
+			c.X = append(c.X, e)
+		}
+		for i, j := range c.X {
+			c.X[i] = j / sum
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		for i, j := range c.D {
+			cx := c.X[i]
+			a.D[i] += j * (cx - cx*cx)
 		}
 	}
 }
@@ -278,16 +327,45 @@ func (context *Context) TanH(a *V) func(k Continuation) {
 // Sum sums a vector
 func (context *Context) Sum(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		c := NewV(1)
+		c, sum := NewV(1), complex128(0.0)
 		for _, j := range a.X {
-			c.X[0] += j
+			sum += j
 		}
+		c.X = append(c.X, sum)
 		k(&c)
 		if context.InferenceOnly {
 			return
 		}
+		d := c.D[0]
 		for i := range a.D {
-			a.D[i] += c.D[0]
+			a.D[i] += d
+		}
+	}
+}
+
+// Quadratic computes the quadratic of two tensors
+func (context *Context) Quadratic(a, b *V) func(k Continuation) {
+	return func(k Continuation) {
+		if len(a.S) != 2 || len(b.S) != 2 {
+			panic("tensor needs to have two dimensions")
+		}
+		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+			panic("dimensions are not the same")
+		}
+		c, sum := NewV(1), complex128(0.0)
+		for i, j := range a.X {
+			p := (j - b.X[i])
+			sum += p * p
+		}
+		c.X = append(c.X, sum)
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		d := c.D[0]
+		for i, j := range a.X {
+			a.D[i] += 2 * (j - b.X[i]) * d
+			b.D[i] += 2 * (b.X[i] - j) * d
 		}
 	}
 }
@@ -325,6 +403,8 @@ var (
 	Sub = B(Static.Sub)
 	// Mul multiplies two tensors
 	Mul = B(Static.Mul)
+	// Hadamard computes the hadamard product of two tensors
+	Hadamard = B(Static.Hadamard)
 	// Sin the sin of a tensors
 	Sin = U(Static.Sin)
 	// Cos the cosine of a tensor
@@ -337,8 +417,12 @@ var (
 	Sigmoid = U(Static.Sigmoid)
 	// TanH the hyperbolic tangent of a tensor
 	TanH = U(Static.TanH)
+	// Softmax is the softmax function
+	Softmax = U(Static.Softmax)
 	// Sum sums a vector
 	Sum = U(Static.Sum)
+	// Quadratic computes the quadratic of two tensors
+	Quadratic = B(Static.Quadratic)
 )
 
 // Gradient computes the gradient
