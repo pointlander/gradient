@@ -398,6 +398,43 @@ func (context *Context) Quadratic(a, b *V) func(k Continuation) {
 	}
 }
 
+// CrossEntropy computes the cross entropy cost of two tensors
+func (context *Context) CrossEntropy(a, b *V) func(k Continuation) {
+	return func(k Continuation) {
+		if len(a.S) != 2 || len(b.S) != 2 {
+			panic("tensor needs to have two dimensions")
+		}
+		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+			panic("dimensions are not the same")
+		}
+		c, sum := NewV(1), {{.Type}}(0.0)
+		for i, ax := range a.X {
+			bx := b.X[i]
+			if bx == 1 {
+				sum += log(ax + .001)
+			} else {
+				sum += log(1 - ax + .001)
+			}
+		}
+		c.X = append(c.X, -sum)
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		d := c.D[0]
+		for i, ax := range a.X {
+			bx := b.X[i]
+			if bx == 1 {
+				a.D[i] -= d / (ax + .001)
+				b.D[i] -= log(ax + .001) * d
+			} else {
+				a.D[i] += d / (1 - ax + .001)
+				b.D[i] -= log(1 - ax + .001) * d
+			}
+		}
+	}
+}
+
 // B converts a binary function into an operator
 func B(op Binary) func(a, b Meta) Meta {
 	return func(a, b Meta) Meta {
@@ -451,6 +488,8 @@ var (
 	Sum = U(Static.Sum)
 	// Quadratic computes the quadratic cost of two tensors
 	Quadratic = B(Static.Quadratic)
+	// CrossEntropy computes the cross entropy cost of two tensors
+	CrossEntropy = B(Static.CrossEntropy)
 )
 
 // Gradient computes the gradient

@@ -19,3 +19,9 @@ https://github.com/itsubaki/q
 
 # The Matrix Calculus You Need For Deep Learning
 https://explained.ai/matrix-calculus/index.html  
+
+# Loss Functions
+https://ml-cheatsheet.readthedocs.io/en/latest/loss_functions.html#mae-l1  
+
+# A list of cost functions used in neural networks, alongside applications
+https://stats.stackexchange.com/questions/154879/a-list-of-cost-functions-used-in-neural-networks-alongside-applications  
