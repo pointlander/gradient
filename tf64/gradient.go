@@ -195,6 +195,29 @@ func (context *Context) Hadamard(a, b *V) func(k Continuation) {
 	}
 }
 
+// T the transpose of the matrix
+func (context *Context) T(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		c := NewV(a.S[1], a.S[0])
+		for p := 0; p < a.S[0]; p++ {
+			for q := 0; q < a.S[1]; q++ {
+				c.X = append(c.X, a.X[q*a.S[0]+p])
+			}
+		}
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		i := 0
+		for p := 0; p < a.S[0]; p++ {
+			for q := 0; q < a.S[1]; q++ {
+				a.D[q*a.S[0]+p] = c.D[i]
+				i++
+			}
+		}
+	}
+}
+
 // Sin the sine of a number
 func (context *Context) Sin(a *V) func(k Continuation) {
 	return func(k Continuation) {
@@ -442,6 +465,8 @@ var (
 	Mul = B(Static.Mul)
 	// Hadamard computes the hadamard product of two tensors
 	Hadamard = B(Static.Hadamard)
+	// // T the transpose of the matrix
+	T = U(Static.T)
 	// Sin the sin of a tensors
 	Sin = U(Static.Sin)
 	// Cos the cosine of a tensor
