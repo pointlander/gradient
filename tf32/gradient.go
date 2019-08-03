@@ -94,12 +94,13 @@ func (context *Context) Add(a, b *V) func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
 			panic("tensor needs to have two dimensions")
 		}
-		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+		width, length := a.S[0], len(b.X)
+		if width != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
 			panic("dimensions are not the same")
 		}
 		c := NewV(a.S...)
 		for i, j := range a.X {
-			c.X = append(c.X, j+b.X[i])
+			c.X = append(c.X, j+b.X[i%length])
 		}
 		k(&c)
 		if context.InferenceOnly {
@@ -107,7 +108,7 @@ func (context *Context) Add(a, b *V) func(k Continuation) {
 		}
 		for i, j := range c.D {
 			a.D[i] += j
-			b.D[i] += j
+			b.D[i%length] += j
 		}
 	}
 }
@@ -118,12 +119,13 @@ func (context *Context) Sub(a, b *V) func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
 			panic("tensor needs to have two dimensions")
 		}
-		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+		width, length := a.S[0], len(b.X)
+		if width != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
 			panic("dimensions are not the same")
 		}
 		c := NewV(a.S...)
 		for i, j := range a.X {
-			c.X = append(c.X, j-b.X[i])
+			c.X = append(c.X, j-b.X[i%length])
 		}
 		k(&c)
 		if context.InferenceOnly {
@@ -131,7 +133,7 @@ func (context *Context) Sub(a, b *V) func(k Continuation) {
 		}
 		for i, j := range c.D {
 			a.D[i] += j
-			b.D[i] -= j
+			b.D[i%length] -= j
 		}
 	}
 }
@@ -333,22 +335,25 @@ func (context *Context) TanH(a *V) func(k Continuation) {
 // Softmax is the softmax function
 func (context *Context) Softmax(a *V) func(k Continuation) {
 	return func(k Continuation) {
-		c, sum := NewV(a.S...), float32(0.0)
-		for _, j := range a.X {
-			e := exp(j)
-			sum += e
-			c.X = append(c.X, e)
-		}
-		for i, j := range c.X {
-			c.X[i] = j / sum
+		c, size, width := NewV(a.S...), len(a.X), a.S[0]
+		for i := 0; i < size; i += width {
+			sum := float32(0.0)
+			for _, ax := range a.X[i : i+width] {
+				e := exp(ax)
+				sum += e
+				c.X = append(c.X, e)
+			}
+			for j, cx := range c.X[i : i+width] {
+				c.X[i+j] = cx / sum
+			}
 		}
 		k(&c)
 		if context.InferenceOnly {
 			return
 		}
-		for i, j := range c.D {
+		for i, d := range c.D {
 			cx := c.X[i]
-			a.D[i] += j * (cx - cx*cx)
+			a.D[i] += d * (cx - cx*cx)
 		}
 	}
 }
@@ -378,23 +383,31 @@ func (context *Context) Quadratic(a, b *V) func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
 			panic("tensor needs to have two dimensions")
 		}
-		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+		width := a.S[0]
+		if width != b.S[0] || a.S[1] != b.S[1] {
 			panic("dimensions are not the same")
 		}
-		c, sum := NewV(1), float32(0.0)
-		for i, j := range a.X {
-			p := (j - b.X[i])
-			sum += p * p
+		c, size := NewV(a.S[1]), len(a.X)
+		for i := 0; i < size; i += width {
+			av, bv, sum := a.X[i:i+width], b.X[i:i+width], float32(0.0)
+			for j, ax := range av {
+				p := (ax - bv[j])
+				sum += p * p
+			}
+			c.X = append(c.X, .5*sum)
 		}
-		c.X = append(c.X, .5*sum)
 		k(&c)
 		if context.InferenceOnly {
 			return
 		}
-		d := c.D[0]
-		for i, j := range a.X {
-			a.D[i] += (j - b.X[i]) * d
-			b.D[i] += (b.X[i] - j) * d
+		index := 0
+		for i := 0; i < size; i += width {
+			av, bv, ad, bd, d := a.X[i:i+width], b.X[i:i+width], a.D[i:i+width], b.D[i:i+width], c.D[index]
+			for j, ax := range av {
+				ad[j] += (ax - bv[j]) * d
+				bd[j] += (bv[j] - ax) * d
+			}
+			index++
 		}
 	}
 }
@@ -405,33 +418,63 @@ func (context *Context) CrossEntropy(a, b *V) func(k Continuation) {
 		if len(a.S) != 2 || len(b.S) != 2 {
 			panic("tensor needs to have two dimensions")
 		}
-		if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+		width := a.S[0]
+		if width != b.S[0] || a.S[1] != b.S[1] {
 			panic("dimensions are not the same")
 		}
-		c, sum := NewV(1), float32(0.0)
-		for i, ax := range a.X {
-			bx := b.X[i]
-			if bx == 1 {
-				sum += log(ax + .001)
-			} else {
-				sum += log(1 - ax + .001)
+		c, size := NewV(a.S[1]), len(a.X)
+		for i := 0; i < size; i += width {
+			av, bv, sum := a.X[i:i+width], b.X[i:i+width], float32(0.0)
+			for j, ax := range av {
+				bx := bv[j]
+				if bx == 1 {
+					sum += log(ax + .001)
+				} else {
+					sum += log(1 - ax + .001)
+				}
 			}
+			c.X = append(c.X, -sum)
 		}
-		c.X = append(c.X, -sum)
 		k(&c)
 		if context.InferenceOnly {
 			return
 		}
-		d := c.D[0]
-		for i, ax := range a.X {
-			bx := b.X[i]
-			if bx == 1 {
-				a.D[i] -= d / (ax + .001)
-				b.D[i] -= log(ax+.001) * d
-			} else {
-				a.D[i] += d / (1 - ax + .001)
-				b.D[i] -= log(1-ax+.001) * d
+		index := 0
+		for i := 0; i < size; i += width {
+			av, bv, ad, bd, d := a.X[i:i+width], b.X[i:i+width], a.D[i:i+width], b.D[i:i+width], c.D[index]
+			for j, ax := range av {
+				bx := bv[j]
+				if bx == 1 {
+					ad[j] -= d / (ax + .001)
+					bd[j] -= log(ax+.001) * d
+				} else {
+					ad[j] += d / (1 - ax + .001)
+					bd[j] -= log(1-ax+.001) * d
+				}
 			}
+			index++
+		}
+	}
+}
+
+// Avg computes the average of the tensor
+func (context *Context) Avg(a *V) func(k Continuation) {
+	return func(k Continuation) {
+		c, sum := NewV(1), float32(0.0)
+		for _, j := range a.X {
+			sum += j
+		}
+
+		total := float32(len(a.X))
+
+		c.X = append(c.X, sum/total)
+		k(&c)
+		if context.InferenceOnly {
+			return
+		}
+		d := c.D[0] / total
+		for i := range a.D {
+			a.D[i] += d
 		}
 	}
 }
@@ -493,6 +536,8 @@ var (
 	Quadratic = B(Static.Quadratic)
 	// CrossEntropy computes the cross entropy cost of two tensors
 	CrossEntropy = B(Static.CrossEntropy)
+	// Avg computes the average of the tensor
+	Avg = U(Static.Avg)
 )
 
 // Gradient computes the gradient
