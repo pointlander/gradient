@@ -25,3 +25,6 @@ https://ml-cheatsheet.readthedocs.io/en/latest/loss_functions.html#mae-l1
 
 # A list of cost functions used in neural networks, alongside applications
 https://stats.stackexchange.com/questions/154879/a-list-of-cost-functions-used-in-neural-networks-alongside-applications  
+
+# Loss Functions in Neural Networks
+https://isaacchanghau.github.io/post/loss_functions/  
