@@ -1,3 +1,6 @@
+# Neural Networks and Deep Learning
+http://neuralnetworksanddeeplearning.com/  
+
 # Backpropagation with Continuation Callbacks: Foundations for Efficient and Expressive Differentiable Programming
 http://papers.nips.cc/paper/8221-backpropagation-with-callbacks-foundations-for-efficient-and-expressive-differentiable-programming.pdf  
 https://www.scala-lang.org/api/2.9.2/scala/util/continuations/package.html  
