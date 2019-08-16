@@ -31,3 +31,7 @@ https://stats.stackexchange.com/questions/154879/a-list-of-cost-functions-used-i
 
 # Loss Functions in Neural Networks
 https://isaacchanghau.github.io/post/loss_functions/  
+
+# From automatic differentiation to message passing
+https://news.ycombinator.com/item?id=20687022  
+https://www.youtube.com/watch?v=NkJNcEed2NU  
