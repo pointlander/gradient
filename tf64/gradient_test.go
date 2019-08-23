@@ -18,18 +18,18 @@ func TestMul(t *testing.T) {
 	b := NewV(2)
 	b.Set([]float64{1, 2})
 	var context Context
-	context.Mul(&a, &b)(func(a *V) {
+	context.Mul(func(a *V) {
 		if a.X[0] != 5 || a.X[1] != 11 {
 			t.Fatal("mul failed", a.X)
 		}
-	})
+	}, &a, &b)
 	e := NewV(2, 2)
 	e.Set([]float64{1, 2, 3, 4})
-	context.Mul(&a, &e)(func(a *V) {
+	context.Mul(func(a *V) {
 		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
 			t.Fatal("mul failed", a.X)
 		}
-	})
+	}, &a, &e)
 }
 
 func TestXORNetwork(t *testing.T) {

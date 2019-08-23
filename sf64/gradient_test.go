@@ -18,13 +18,12 @@ func TestGradient(t *testing.T) {
 		a.D = 1
 	}
 	v5 := func(a *V) {
-		context.TanH(a)(v6)
+		context.TanH(v6, a)
 	}
 	v4 := func(a *V) {
-		context.Mul(a, &v2)(v5)
+		context.Mul(v5, a, &v2)
 	}
-	v3 := context.Add(&v1, &v2)
-	v3(v4)
+	context.Add(v4, &v1, &v2)
 
 	w1, w2 := V{0.5, 0}, V{0.4, 0}
 	Gradient(TanH(Mul(w2.Meta(), Add(w1.Meta(), w2.Meta()))))
