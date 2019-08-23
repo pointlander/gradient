@@ -29,6 +29,8 @@ type (
 	Unary func(k Continuation, a *V)
 	// Binary is a binary function
 	Binary func(k Continuation, a, b *V)
+	// Operation is an operation that takes multiple parameters
+	Operation func(k Continuation, a ...*V)
 )
 
 {{if eq .Type "float64"}}
@@ -470,6 +472,25 @@ func (context *Context) Avg(k Continuation, a *V) {
 	d := c.D[0] / total
 	for i := range a.D {
 		a.D[i] += d
+	}
+}
+
+// Op is a operation
+func Op(op Operation) func(a ...Meta) Meta {
+	return func(a ...Meta) Meta {
+		return func(k Continuation) Continuation {
+			var call func(a []Meta, b []*V) Continuation
+			call = func(a []Meta, b []*V) Continuation {
+				if len(a) == 0 {
+					op(k, b...)
+					return nil
+				}
+				return a[0](func(c *V) {
+					call(a[1:], append(b, c))
+				})
+			}
+			return call(a, make([]*V, 0, len(a)))
+		}
 	}
 }
 
