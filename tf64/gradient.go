@@ -28,10 +28,12 @@ type (
 )
 
 var (
-	sin = math.Sin
-	cos = math.Cos
-	exp = math.Exp
-	log = math.Log
+	abs  = math.Abs
+	sin  = math.Sin
+	cos  = math.Cos
+	exp  = math.Exp
+	log  = math.Log
+	sqrt = math.Sqrt
 )
 
 // NewV create a new tensor value
@@ -423,6 +425,106 @@ func (context *Context) CrossEntropy(k Continuation, a, b *V) {
 	}
 }
 
+// Similarity computes the cosine similarity cost of two tensors
+func (context *Context) Similarity(k Continuation, a, b *V) {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] || a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	length := a.S[1]
+	c, size := NewV(length), len(a.X)
+	ab, aa, bb := make([]float64, 0, length), make([]float64, 0, length), make([]float64, 0, length)
+	for i := 0; i < size; i += width {
+		av, bv := a.X[i:i+width], b.X[i:i+width]
+		sumAB, sumAA, sumBB := float64(0.0), float64(0.0), float64(0.0)
+		for j, ax := range av {
+			bx := bv[j]
+			sumAB += ax * bx
+			sumAA += ax * ax
+			sumBB += bx * bx
+		}
+		c.X, ab, aa, bb =
+			append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
+	}
+	k(&c)
+	if context.InferenceOnly {
+		return
+	}
+	index := 0
+	for i := 0; i < size; i += width {
+		av, bv, ad, bd, cd := a.X[i:i+width], b.X[i:i+width], a.D[i:i+width], b.D[i:i+width], c.D[index]
+		sumAB, sumAA, sumBB := ab[index], aa[index], bb[index]
+		denominator := sqrt(sumAA) * sqrt(sumBB)
+		for j, ax := range av {
+			bx := bv[j]
+			ad[j] += cd * (bx/denominator - ax*sumAB/(sumAA*denominator))
+			bd[j] += cd * (ax/denominator - bx*sumAB/(sumBB*denominator))
+		}
+		index++
+	}
+}
+
+// Orthogonality computes the cosine similarity between all vectros
+func (context *Context) Orthogonality(k Continuation, a *V) {
+	length := ((a.S[1] - 1) * a.S[1]) / 2
+	c, size, width := NewV(length), len(a.X), a.S[0]
+	ab, aa, bb := make([]float64, 0, length), make([]float64, 0, length), make([]float64, 0, length)
+	for i := 0; i < size; i += width {
+		for j := i + width; j < size; j += width {
+			sumAB, sumAA, sumBB := float64(0.0), float64(0.0), float64(0.0)
+			for k := 0; k < width; k++ {
+				a, b := a.X[i+k], a.X[j+k]
+				sumAB += a * b
+				sumAA += a * a
+				sumBB += b * b
+			}
+			c.X, ab, aa, bb =
+				append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
+		}
+	}
+	k(&c)
+	if context.InferenceOnly {
+		return
+	}
+	index := 0
+	for i := 0; i < size; i += width {
+		for j := i + width; j < size; j += width {
+			cd, sumAB, sumAA, sumBB := c.D[index], ab[index], aa[index], bb[index]
+			denominator := sqrt(sumAA) * sqrt(sumBB)
+			for k := 0; k < width; k++ {
+				ax, bx := a.X[i+k], a.X[j+k]
+				a.D[i+k] += cd * (bx/denominator - ax*sumAB/(sumAA*denominator))
+				a.D[j+k] += cd * (ax/denominator - bx*sumAB/(sumBB*denominator))
+			}
+			index++
+		}
+	}
+}
+
+// Abs computes the absolute value of the tensor
+func (context *Context) Abs(k Continuation, a *V) {
+	c := NewV(a.S...)
+	for _, ax := range a.X {
+		c.X = append(c.X, abs(ax))
+	}
+	k(&c)
+	if context.InferenceOnly {
+		return
+	}
+	for i, cd := range c.D {
+
+		sign := float64(1)
+		if a.X[i] < 0 {
+			sign = -1
+		}
+		a.D[i] += cd * sign
+
+	}
+}
+
 // Avg computes the average of the tensor
 func (context *Context) Avg(k Continuation, a *V) {
 	c, sum := NewV(1), float64(0.0)
@@ -519,6 +621,12 @@ var (
 	Quadratic = B(Static.Quadratic)
 	// CrossEntropy computes the cross entropy cost of two tensors
 	CrossEntropy = B(Static.CrossEntropy)
+	// Similarity computes the cosine similarity cost of two tensors
+	Similarity = B(Static.Similarity)
+	// Orthogonality computes the cosine similarity between all vectros
+	Orthogonality = U(Static.Orthogonality)
+	// Abs computes the absolute value of the tensor
+	Abs = U(Static.Abs)
 	// Avg computes the average of the tensor
 	Avg = U(Static.Avg)
 )
