@@ -507,6 +507,9 @@ func (context *Context) Similarity(k Continuation, a, b *V) {
 
 // Orthogonality computes the cosine similarity between all vectros
 func (context *Context) Orthogonality(k Continuation, a *V) {
+	if len(a.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
 	length := ((a.S[1]-1)*a.S[1])/2
 	c, size, width := NewV(length), len(a.X), a.S[0]
 	ab, aa, bb := make([]{{.Type}}, 0, length), make([]{{.Type}}, 0, length), make([]{{.Type}}, 0, length)
@@ -539,6 +542,35 @@ func (context *Context) Orthogonality(k Continuation, a *V) {
 			}
 			index++
 		}
+	}
+}
+
+// Entropy computes the entropy of the vectors
+func (context *Context) Entropy(k Continuation, a *V) {
+	if len(a.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	c, size, width := NewV(a.S[1]), len(a.X), a.S[0]
+	for i := 0; i < size; i += width {
+		sum := {{.Type}}(0.0)
+		for k := 0; k < width; k++ {
+			ax := a.X[i+k]
+			sum += ax * log(ax)
+		}
+		c.X = append(c.X, -sum)
+	}
+	k(&c)
+	if context.InferenceOnly {
+		return
+	}
+	index := 0
+	for i := 0; i < size; i += width {
+		cd := c.D[index]
+		for k := 0; k < width; k++ {
+			ax := a.X[i+k]
+			a.D[i+k] -= cd * (log(ax) + 1)
+		}
+		index++
 	}
 }
 
@@ -669,6 +701,8 @@ var (
 	Similarity = B(Static.Similarity)
 	// Orthogonality computes the cosine similarity between all vectros
 	Orthogonality = U(Static.Orthogonality)
+	// Entropy computes the entropy of the vectors
+	Entropy = U(Static.Entropy)
 	// Abs computes the absolute value of the tensor
 	Abs = U(Static.Abs)
 	// Avg computes the average of the tensor
