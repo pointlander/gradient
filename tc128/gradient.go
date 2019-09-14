@@ -539,6 +539,53 @@ func (context *Context) Entropy(k Continuation, a *V) {
 	}
 }
 
+// Variance computes the variance of the vectors
+func (context *Context) Variance(k Continuation, a *V) {
+	if len(a.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	length := a.S[1]
+	c, size, width, means := NewV(length), len(a.X), a.S[0], make([]complex128, 0, length)
+
+	n := complex128(complex(float64(width), 0))
+
+	for i := 0; i < size; i += width {
+		sum := complex128(0.0)
+		for k := 0; k < width; k++ {
+			sum += a.X[i+k]
+		}
+		mean := sum / n
+		sum = complex128(0.0)
+		for k := 0; k < width; k++ {
+			d := a.X[i+k] - mean
+			sum += d * d
+		}
+		c.X, means = append(c.X, sum/n), append(means, mean)
+	}
+	k(&c)
+	if context.InferenceOnly {
+		return
+	}
+	index, nn := 0, n*n
+	for i := 0; i < size; i += width {
+		cd, mean := c.D[index], means[index]
+		for j := 0; j < width; j++ {
+			sum := complex128(0.0)
+			for k := 0; k < width; k++ {
+				d := a.X[i+k] - mean
+				if j == k {
+					d *= (n - 1)
+				} else {
+					d *= -1
+				}
+				sum += d
+			}
+			a.D[i+j] += cd * 2 * sum / nn
+		}
+		index++
+	}
+}
+
 // Abs computes the absolute value of the tensor
 func (context *Context) Abs(k Continuation, a *V) {
 	c := NewV(a.S...)
@@ -658,6 +705,8 @@ var (
 	Orthogonality = U(Static.Orthogonality)
 	// Entropy computes the entropy of the vectors
 	Entropy = U(Static.Entropy)
+	// Variance computes the variance of the vectors
+	Variance = U(Static.Variance)
 	// Abs computes the absolute value of the tensor
 	Abs = U(Static.Abs)
 	// Avg computes the average of the tensor

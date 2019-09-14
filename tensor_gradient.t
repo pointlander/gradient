@@ -495,7 +495,7 @@ func (context *Context) Similarity(k Continuation, a, b *V) {
 	for i := 0; i < size; i += width {
 		av, bv, ad, bd, cd := a.X[i:i+width], b.X[i:i+width], a.D[i:i+width], b.D[i:i+width], c.D[index]
 		sumAB, sumAA, sumBB := ab[index], aa[index], bb[index]
-		denominator := sqrt(sumAA)*sqrt(sumBB)
+		denominator := sqrt(sumAA) * sqrt(sumBB)
 		for j, ax := range av {
 			bx := bv[j]
 			ad[j] += cd * (bx/denominator - ax*sumAB/(sumAA*denominator))
@@ -510,7 +510,7 @@ func (context *Context) Orthogonality(k Continuation, a *V) {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
-	length := ((a.S[1]-1)*a.S[1])/2
+	length := ((a.S[1] - 1) * a.S[1]) / 2
 	c, size, width := NewV(length), len(a.X), a.S[0]
 	ab, aa, bb := make([]{{.Type}}, 0, length), make([]{{.Type}}, 0, length), make([]{{.Type}}, 0, length)
 	for i := 0; i < size; i += width {
@@ -534,7 +534,7 @@ func (context *Context) Orthogonality(k Continuation, a *V) {
 	for i := 0; i < size; i += width {
 		for j := i + width; j < size; j += width {
 			cd, sumAB, sumAA, sumBB := c.D[index], ab[index], aa[index], bb[index]
-			denominator := sqrt(sumAA)*sqrt(sumBB)
+			denominator := sqrt(sumAA) * sqrt(sumBB)
 			for k := 0; k < width; k++ {
 				ax, bx := a.X[i+k], a.X[j+k]
 				a.D[i+k] += cd * (bx/denominator - ax*sumAB/(sumAA*denominator))
@@ -569,6 +569,55 @@ func (context *Context) Entropy(k Continuation, a *V) {
 		for k := 0; k < width; k++ {
 			ax := a.X[i+k]
 			a.D[i+k] -= cd * (log(ax) + 1)
+		}
+		index++
+	}
+}
+
+// Variance computes the variance of the vectors
+func (context *Context) Variance(k Continuation, a *V) {
+	if len(a.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	length := a.S[1]
+	c, size, width, means := NewV(length), len(a.X), a.S[0], make([]{{.Type}}, 0, length)
+{{if or (eq .Type "float64") (eq .Type "float32")}}
+	n := {{.Type}}(width)
+{{else if eq .Type "complex128"}}
+	n := {{.Type}}(complex(float64(width), 0))
+{{end}}
+	for i := 0; i < size; i += width {
+		sum := {{.Type}}(0.0)
+		for k := 0; k < width; k++ {
+			sum += a.X[i+k]
+		}
+		mean := sum / n
+		sum = {{.Type}}(0.0)
+		for k := 0; k < width; k++ {
+			d := a.X[i+k] - mean
+			sum += d * d
+		}
+		c.X, means = append(c.X, sum/n), append(means, mean)
+	}
+	k(&c)
+	if context.InferenceOnly {
+		return
+	}
+	index, nn := 0, n * n
+	for i := 0; i < size; i += width {
+		cd, mean := c.D[index], means[index]
+		for j := 0; j < width; j++ {
+			sum := {{.Type}}(0.0)
+			for k := 0; k < width; k++ {
+				d := a.X[i+k] - mean
+				if j == k {
+					d *= (n - 1)
+				} else {
+					d *= -1
+				}
+				sum += d
+			}
+			a.D[i+j] += cd * 2 * sum / nn
 		}
 		index++
 	}
@@ -703,6 +752,8 @@ var (
 	Orthogonality = U(Static.Orthogonality)
 	// Entropy computes the entropy of the vectors
 	Entropy = U(Static.Entropy)
+	// Variance computes the variance of the vectors
+	Variance = U(Static.Variance)
 	// Abs computes the absolute value of the tensor
 	Abs = U(Static.Abs)
 	// Avg computes the average of the tensor
