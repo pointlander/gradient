@@ -35,3 +35,8 @@ https://isaacchanghau.github.io/post/loss_functions/
 # From automatic differentiation to message passing
 https://news.ycombinator.com/item?id=20687022  
 https://www.youtube.com/watch?v=NkJNcEed2NU  
+
+# Weld: Accelerating numpy, scikit and pandas as much as 100x with Rust and LLVM
+https://news.ycombinator.com/item?id=21036503  
+https://notamonadtutorial.com/weld-accelerating-numpy-scikit-and-pandas-as-much-as-100x-with-rust-and-llvm-12ec1c630a1  
+
