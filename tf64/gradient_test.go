@@ -30,7 +30,7 @@ func TestMul(t *testing.T) {
 		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
 			t.Fatal("mul failed", a.X)
 		}
-		return false
+		return true
 	}, &a, &e)
 }
 
@@ -135,7 +135,7 @@ func TestXORNetwork(t *testing.T) {
 		var output V
 		l2(func(a *V) bool {
 			output = *a
-			return false
+			return true
 		})
 		if data[i][2] == 1 && output.X[0] < .5 {
 			t.Fatal("output should be 1", output.X[0], data[i][0], data[i][1], data[i][2])
