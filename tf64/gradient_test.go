@@ -18,17 +18,19 @@ func TestMul(t *testing.T) {
 	b := NewV(2)
 	b.Set([]float64{1, 2})
 	var context Context
-	context.Mul(func(a *V) {
+	context.Mul(func(a *V) bool {
 		if a.X[0] != 5 || a.X[1] != 11 {
 			t.Fatal("mul failed", a.X)
 		}
+		return false
 	}, &a, &b)
 	e := NewV(2, 2)
 	e.Set([]float64{1, 2, 3, 4})
-	context.Mul(func(a *V) {
+	context.Mul(func(a *V) bool {
 		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
 			t.Fatal("mul failed", a.X)
 		}
+		return false
 	}, &a, &e)
 }
 
@@ -131,8 +133,9 @@ func TestXORNetwork(t *testing.T) {
 	for i := range data {
 		input.X[0], input.X[1] = data[i][0], data[i][1]
 		var output V
-		l2(func(a *V) {
+		l2(func(a *V) bool {
 			output = *a
+			return false
 		})
 		if data[i][2] == 1 && output.X[0] < .5 {
 			t.Fatal("output should be 1", output.X[0], data[i][0], data[i][1], data[i][2])

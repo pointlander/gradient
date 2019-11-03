@@ -14,14 +14,15 @@ import (
 func TestGradient(t *testing.T) {
 	var context Context
 	v1, v2 := V{0.5, 0}, V{0.4, 0}
-	v6 := func(a *V) {
+	v6 := func(a *V) bool {
 		a.D = 1
+		return false
 	}
-	v5 := func(a *V) {
-		context.TanH(v6, a)
+	v5 := func(a *V) bool {
+		return context.TanH(v6, a)
 	}
-	v4 := func(a *V) {
-		context.Mul(v5, a, &v2)
+	v4 := func(a *V) bool {
+		return context.Mul(v5, a, &v2)
 	}
 	context.Add(v4, &v1, &v2)
 
@@ -88,8 +89,9 @@ func TestXORNetwork(t *testing.T) {
 	for i := range data {
 		i1.X, i2.X = data[i][0], data[i][1]
 		var output V
-		n3(func(a *V) {
+		n3(func(a *V) bool {
 			output = *a
+			return true
 		})
 		if data[i][2] == 1 && output.X < .5 {
 			t.Log("output should be 1", output.X, data[i][0], data[i][1], data[i][2])

@@ -16,15 +16,15 @@ type (
 		S []int     // the shape
 	}
 	// Continuation is a continuation
-	Continuation func(a *V)
+	Continuation func(a *V) bool
 	// Meta is a function that takes a continuation and return a continuation
 	Meta func(k Continuation) Continuation
 	// Unary is a unary function
-	Unary func(k Continuation, a *V)
+	Unary func(k Continuation, a *V) bool
 	// Binary is a binary function
-	Binary func(k Continuation, a, b *V)
+	Binary func(k Continuation, a, b *V) bool
 	// Operation is an operation that takes multiple parameters
-	Operation func(k Continuation, a ...*V)
+	Operation func(k Continuation, a ...*V) bool
 )
 
 func abs(a float32) float32 {
@@ -60,8 +60,9 @@ func NewV(s ...int) V {
 }
 
 // Panic marks a place we should never get to
-func Panic(a *V) {
+func Panic(a *V) bool {
 	panic("should not be here")
+	return false
 }
 
 // Meta returns a meta for the value
@@ -93,11 +94,10 @@ func (a *V) Set(values []float32) {
 
 // Context is a function context
 type Context struct {
-	InferenceOnly bool
 }
 
 // Add adds two tensors
-func (context *Context) Add(k Continuation, a, b *V) {
+func (context *Context) Add(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -109,18 +109,18 @@ func (context *Context) Add(k Continuation, a, b *V) {
 	for i, j := range a.X {
 		c.X = append(c.X, j+b.X[i%length])
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		a.D[i] += j
 		b.D[i%length] += j
 	}
+	return false
 }
 
 // Sub subtracts two tensors
-func (context *Context) Sub(k Continuation, a, b *V) {
+func (context *Context) Sub(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -132,18 +132,18 @@ func (context *Context) Sub(k Continuation, a, b *V) {
 	for i, j := range a.X {
 		c.X = append(c.X, j-b.X[i%length])
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		a.D[i] += j
 		b.D[i%length] -= j
 	}
+	return false
 }
 
 // Mul multiplies two tensors
-func (context *Context) Mul(k Continuation, a, b *V) {
+func (context *Context) Mul(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -163,9 +163,8 @@ func (context *Context) Mul(k Continuation, a, b *V) {
 			c.X = append(c.X, sum)
 		}
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	index := 0
 	for i := 0; i < sizeB; i += width {
@@ -179,10 +178,11 @@ func (context *Context) Mul(k Continuation, a, b *V) {
 			index++
 		}
 	}
+	return false
 }
 
 // Hadamard computes the hadamard product of two tensors
-func (context *Context) Hadamard(k Continuation, a, b *V) {
+func (context *Context) Hadamard(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -193,27 +193,27 @@ func (context *Context) Hadamard(k Continuation, a, b *V) {
 	for i, j := range a.X {
 		c.X = append(c.X, j*b.X[i])
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		a.D[i] += j * b.X[i]
 		b.D[i] += j * a.X[i]
 	}
+	return false
 }
 
 // T the transpose of the matrix
-func (context *Context) T(k Continuation, a *V) {
+func (context *Context) T(k Continuation, a *V) bool {
 	c := NewV(a.S[1], a.S[0])
 	for p := 0; p < a.S[0]; p++ {
 		for q := 0; q < a.S[1]; q++ {
 			c.X = append(c.X, a.X[q*a.S[0]+p])
 		}
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+
+	if k(&c) {
+		return true
 	}
 	i := 0
 	for p := 0; p < a.S[0]; p++ {
@@ -222,104 +222,105 @@ func (context *Context) T(k Continuation, a *V) {
 			i++
 		}
 	}
+	return false
 }
 
 // Sin the sine of a number
-func (context *Context) Sin(k Continuation, a *V) {
+func (context *Context) Sin(k Continuation, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, sin(j))
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		a.D[i] += j * cos(a.X[i])
 	}
+	return false
 }
 
 // Cos the cosine of a tensor
-func (context *Context) Cos(k Continuation, a *V) {
+func (context *Context) Cos(k Continuation, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, cos(j))
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		a.D[i] -= j * sin(a.X[i])
 	}
+	return false
 }
 
 // Exp the base e exponential of a tensor
-func (context *Context) Exp(k Continuation, a *V) {
+func (context *Context) Exp(k Continuation, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, exp(j))
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		a.D[i] += j * c.X[i]
 	}
+	return false
 }
 
 // Log the natural logarithm of a tensor
-func (context *Context) Log(k Continuation, a *V) {
+func (context *Context) Log(k Continuation, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, log(j))
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		a.D[i] += j / a.X[i]
 	}
+	return false
 }
 
 // Sigmoid computes the sigmoid of a vector
-func (context *Context) Sigmoid(k Continuation, a *V) {
+func (context *Context) Sigmoid(k Continuation, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		e := exp(j)
 		c.X = append(c.X, e/(e+1))
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		cx := c.X[i]
 		a.D[i] += j * cx * (1 - cx)
 	}
+	return false
 }
 
 // TanH the hyperbolic tangent of a tensor
-func (context *Context) TanH(k Continuation, a *V) {
+func (context *Context) TanH(k Continuation, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		e1, e2 := exp(j), exp(-j)
 		c.X = append(c.X, (e1-e2)/(e1+e2))
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, j := range c.D {
 		cx := c.X[i]
 		a.D[i] += j * (1 - cx*cx)
 	}
+	return false
 }
 
 // Softmax is the softmax function
-func (context *Context) Softmax(k Continuation, a *V) {
+func (context *Context) Softmax(k Continuation, a *V) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
 	for i := 0; i < size; i += width {
 		sum := float32(0.0)
@@ -332,35 +333,35 @@ func (context *Context) Softmax(k Continuation, a *V) {
 			c.X[i+j] = cx / sum
 		}
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, d := range c.D {
 		cx := c.X[i]
 		a.D[i] += d * (cx - cx*cx)
 	}
+	return false
 }
 
 // Sum sums a vector
-func (context *Context) Sum(k Continuation, a *V) {
+func (context *Context) Sum(k Continuation, a *V) bool {
 	c, sum := NewV(1), float32(0.0)
 	for _, j := range a.X {
 		sum += j
 	}
 	c.X = append(c.X, sum)
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	d := c.D[0]
 	for i := range a.D {
 		a.D[i] += d
 	}
+	return false
 }
 
 // Quadratic computes the quadratic cost of two tensors
-func (context *Context) Quadratic(k Continuation, a, b *V) {
+func (context *Context) Quadratic(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -377,9 +378,8 @@ func (context *Context) Quadratic(k Continuation, a, b *V) {
 		}
 		c.X = append(c.X, .5*sum)
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	index := 0
 	for i := 0; i < size; i += width {
@@ -390,10 +390,11 @@ func (context *Context) Quadratic(k Continuation, a, b *V) {
 		}
 		index++
 	}
+	return false
 }
 
 // CrossEntropy computes the cross entropy cost of two tensors
-func (context *Context) CrossEntropy(k Continuation, a, b *V) {
+func (context *Context) CrossEntropy(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -414,9 +415,8 @@ func (context *Context) CrossEntropy(k Continuation, a, b *V) {
 		}
 		c.X = append(c.X, -sum)
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	index := 0
 	for i := 0; i < size; i += width {
@@ -433,10 +433,11 @@ func (context *Context) CrossEntropy(k Continuation, a, b *V) {
 		}
 		index++
 	}
+	return false
 }
 
 // Similarity computes the cosine similarity cost of two tensors
-func (context *Context) Similarity(k Continuation, a, b *V) {
+func (context *Context) Similarity(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -459,9 +460,8 @@ func (context *Context) Similarity(k Continuation, a, b *V) {
 		c.X, ab, aa, bb =
 			append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	index := 0
 	for i := 0; i < size; i += width {
@@ -475,10 +475,11 @@ func (context *Context) Similarity(k Continuation, a, b *V) {
 		}
 		index++
 	}
+	return false
 }
 
 // Orthogonality computes the cosine similarity between all vectros
-func (context *Context) Orthogonality(k Continuation, a *V) {
+func (context *Context) Orthogonality(k Continuation, a *V) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -498,9 +499,8 @@ func (context *Context) Orthogonality(k Continuation, a *V) {
 				append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
 		}
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	index := 0
 	for i := 0; i < size; i += width {
@@ -515,10 +515,11 @@ func (context *Context) Orthogonality(k Continuation, a *V) {
 			index++
 		}
 	}
+	return false
 }
 
 // Entropy computes the entropy of the vectors
-func (context *Context) Entropy(k Continuation, a *V) {
+func (context *Context) Entropy(k Continuation, a *V) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -531,9 +532,8 @@ func (context *Context) Entropy(k Continuation, a *V) {
 		}
 		c.X = append(c.X, -sum)
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	index := 0
 	for i := 0; i < size; i += width {
@@ -544,10 +544,11 @@ func (context *Context) Entropy(k Continuation, a *V) {
 		}
 		index++
 	}
+	return false
 }
 
 // Variance computes the variance of the vectors
-func (context *Context) Variance(k Continuation, a *V) {
+func (context *Context) Variance(k Continuation, a *V) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -569,9 +570,8 @@ func (context *Context) Variance(k Continuation, a *V) {
 		}
 		c.X, means = append(c.X, sum/n), append(means, mean)
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	index, nn := 0, n*n
 	for i := 0; i < size; i += width {
@@ -591,17 +591,17 @@ func (context *Context) Variance(k Continuation, a *V) {
 		}
 		index++
 	}
+	return false
 }
 
 // Abs computes the absolute value of the tensor
-func (context *Context) Abs(k Continuation, a *V) {
+func (context *Context) Abs(k Continuation, a *V) bool {
 	c := NewV(a.S...)
 	for _, ax := range a.X {
 		c.X = append(c.X, abs(ax))
 	}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	for i, cd := range c.D {
 
@@ -612,10 +612,11 @@ func (context *Context) Abs(k Continuation, a *V) {
 		a.D[i] += cd * sign
 
 	}
+	return false
 }
 
 // Avg computes the average of the tensor
-func (context *Context) Avg(k Continuation, a *V) {
+func (context *Context) Avg(k Continuation, a *V) bool {
 	c, sum := NewV(1), float32(0.0)
 	for _, j := range a.X {
 		sum += j
@@ -624,31 +625,34 @@ func (context *Context) Avg(k Continuation, a *V) {
 	total := float32(len(a.X))
 
 	c.X = append(c.X, sum/total)
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	d := c.D[0] / total
 	for i := range a.D {
 		a.D[i] += d
 	}
+	return false
 }
 
 // Op is a operation
 func Op(op Operation) func(a ...Meta) Meta {
 	return func(a ...Meta) Meta {
 		return func(k Continuation) Continuation {
-			var call func(a []Meta, b []*V) Continuation
-			call = func(a []Meta, b []*V) Continuation {
+			var call func(a []Meta, b []*V) (bool, Continuation)
+			call = func(a []Meta, b []*V) (bool, Continuation) {
 				if len(a) == 0 {
-					op(k, b...)
-					return nil
+					return op(k, b...), nil
 				}
-				return a[0](func(c *V) {
-					call(a[1:], append(b, c))
+				derivatives := false
+				continuation := a[0](func(c *V) bool {
+					derivatives, _ = call(a[1:], append(b, c))
+					return derivatives
 				})
+				return derivatives, continuation
 			}
-			return call(a, make([]*V, 0, len(a)))
+			_, continuation := call(a, make([]*V, 0, len(a)))
+			return continuation
 		}
 	}
 }
@@ -657,10 +661,13 @@ func Op(op Operation) func(a ...Meta) Meta {
 func B(op Binary) func(a, b Meta) Meta {
 	return func(a, b Meta) Meta {
 		return func(k Continuation) Continuation {
-			return a(func(a *V) {
-				b(func(b *V) {
-					op(k, a, b)
+			return a(func(a *V) bool {
+				derivatives := false
+				b(func(b *V) bool {
+					derivatives = op(k, a, b)
+					return derivatives
 				})
+				return derivatives
 			})
 		}
 	}
@@ -670,8 +677,8 @@ func B(op Binary) func(a, b Meta) Meta {
 func U(op Unary) func(a Meta) Meta {
 	return func(a Meta) Meta {
 		return func(k Continuation) Continuation {
-			return a(func(b *V) {
-				op(k, b)
+			return a(func(b *V) bool {
+				return op(k, b)
 			})
 		}
 	}
@@ -726,9 +733,10 @@ var (
 
 // Gradient computes the gradient
 func Gradient(a Meta) (cost V) {
-	a(func(a *V) {
+	a(func(a *V) bool {
 		cost = *a
 		a.D[0] = 1
+		return false
 	})
 	return
 }

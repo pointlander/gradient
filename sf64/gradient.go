@@ -15,13 +15,13 @@ type (
 		D float64 // the derivative
 	}
 	// Continuation is a continuation
-	Continuation func(a *V)
+	Continuation func(a *V) bool
 	// Meta is a function that takes a continuation and return a continuation
 	Meta func(k Continuation) Continuation
 	// Unary is a unary function
-	Unary func(k Continuation, a *V)
+	Unary func(k Continuation, a *V) bool
 	// Binary is a binary function
-	Binary func(k Continuation, a, b *V)
+	Binary func(k Continuation, a, b *V) bool
 )
 
 var (
@@ -32,8 +32,9 @@ var (
 )
 
 // Panic marks a place we should never get to
-func Panic(a *V) {
+func Panic(a *V) bool {
 	panic("should not be here")
+	return false
 }
 
 // Meta returns a meta for the value
@@ -46,123 +47,125 @@ func (a *V) Meta() Meta {
 
 // Context is a function context
 type Context struct {
-	InferenceOnly bool
 }
 
 // Add adds two numbers
-func (context *Context) Add(k Continuation, a, b *V) {
+func (context *Context) Add(k Continuation, a, b *V) bool {
 	c := V{a.X + b.X, 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += c.D
 	b.D += c.D
+	return false
 }
 
 // Sub subtracts two numbers
-func (context *Context) Sub(k Continuation, a, b *V) {
+func (context *Context) Sub(k Continuation, a, b *V) bool {
 	c := V{a.X - b.X, 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += c.D
 	b.D -= c.D
+	return false
 }
 
 // Mul multiplies two numbers
-func (context *Context) Mul(k Continuation, a, b *V) {
+func (context *Context) Mul(k Continuation, a, b *V) bool {
 	c := V{a.X * b.X, 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += b.X * c.D
 	b.D += a.X * c.D
+	return false
 }
 
 // Div divides two numbers
-func (context *Context) Div(k Continuation, a, b *V) {
+func (context *Context) Div(k Continuation, a, b *V) bool {
 	c := V{a.X / b.X, 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += c.D / b.X
 	b.D -= (c.D * a.X) / (b.X * b.X)
+	return false
 }
 
 // Sin the sine of a number
-func (context *Context) Sin(k Continuation, a *V) {
+func (context *Context) Sin(k Continuation, a *V) bool {
 	c := V{sin(a.X), 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += c.D * cos(a.X)
+	return false
 }
 
 // Cos the cosine of a number
-func (context *Context) Cos(k Continuation, a *V) {
+func (context *Context) Cos(k Continuation, a *V) bool {
 	c := V{cos(a.X), 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D -= c.D * sin(a.X)
+	return false
 }
 
 // Exp the base e exponential
-func (context *Context) Exp(k Continuation, a *V) {
+func (context *Context) Exp(k Continuation, a *V) bool {
 	c := V{exp(a.X), 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += c.D * c.X
+	return false
 }
 
 // Log the natural logarithm
-func (context *Context) Log(k Continuation, a *V) {
+func (context *Context) Log(k Continuation, a *V) bool {
 	c := V{log(a.X), 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += c.D / a.X
+	return false
 }
 
 // Sigmoid the sigmoid of a number
-func (context *Context) Sigmoid(k Continuation, a *V) {
+func (context *Context) Sigmoid(k Continuation, a *V) bool {
 	i := exp(a.X)
 	c := V{i / (i + 1), 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += c.D * c.X * (1 - c.X)
+	return false
 }
 
 // TanH the hyperbolic tangent of a number
-func (context *Context) TanH(k Continuation, a *V) {
+func (context *Context) TanH(k Continuation, a *V) bool {
 	i, j := exp(a.X), exp(-a.X)
 	c := V{(i - j) / (i + j), 0}
-	k(&c)
-	if context.InferenceOnly {
-		return
+	if k(&c) {
+		return true
 	}
 	a.D += (1 - c.X*c.X) * c.D
+	return false
 }
 
 // B converts a binary function into an operator
 func B(op Binary) func(a, b Meta) Meta {
 	return func(a, b Meta) Meta {
 		return func(k Continuation) Continuation {
-			return a(func(a *V) {
-				b(func(b *V) {
-					op(k, a, b)
+			return a(func(a *V) bool {
+				derivatives := false
+				b(func(b *V) bool {
+					derivatives = op(k, a, b)
+					return derivatives
 				})
+				return derivatives
 			})
 		}
 	}
@@ -172,8 +175,8 @@ func B(op Binary) func(a, b Meta) Meta {
 func U(op Unary) func(a Meta) Meta {
 	return func(a Meta) Meta {
 		return func(k Continuation) Continuation {
-			return a(func(b *V) {
-				op(k, b)
+			return a(func(b *V) bool {
+				return op(k, b)
 			})
 		}
 	}
@@ -206,9 +209,10 @@ var (
 
 // Gradient computes the gradient
 func Gradient(a Meta) (cost V) {
-	a(func(a *V) {
+	a(func(a *V) bool {
 		cost = *a
 		a.D = 1
+		return false
 	})
 	return
 }
