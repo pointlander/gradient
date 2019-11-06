@@ -40,3 +40,6 @@ https://www.youtube.com/watch?v=NkJNcEed2NU
 https://news.ycombinator.com/item?id=21036503  
 https://notamonadtutorial.com/weld-accelerating-numpy-scikit-and-pandas-as-much-as-100x-with-rust-and-llvm-12ec1c630a1  
 
+# How To Turn Physics into an Optimization Problem?
+https://news.ycombinator.com/item?id=21453318  
+https://medium.com/@marksaroufim/how-to-turn-physics-into-an-optimization-problem-11b3fbf83062  
