@@ -625,7 +625,7 @@ func (context *Context) Avg(k Continuation, a *V) bool {
 	return false
 }
 
-// Convert two tensors to a complex number
+// Combines two complex tensors to a complex tensor
 func (context *Context) Complex(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
@@ -744,6 +744,9 @@ var (
 	Abs = U(Static.Abs)
 	// Avg computes the average of the tensor
 	Avg = U(Static.Avg)
+
+	// Combines two complex tensors to a complex tensor
+	Complex = B(Static.Complex)
 )
 
 // Gradient computes the gradient
