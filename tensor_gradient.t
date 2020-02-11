@@ -10,6 +10,7 @@ import (
 {{else if eq .Type "float32"}}
   "math"
 {{else if eq .Type "complex128"}}
+	"math"
   "math/cmplx"
 {{end}}
 )
@@ -671,6 +672,33 @@ func (context *Context) Avg(k Continuation, a *V) bool {
 	}
 	return false
 }
+
+{{if eq .Type "complex128"}}
+// Convert two tensors to a complex number
+func (context *Context) Complex(k Continuation, a, b *V) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width, length := a.S[0], len(b.X)
+	if width != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
+		panic("dimensions are not the same")
+	}
+	c := NewV(a.S...)
+	for i, aX := range a.X {
+		c.X = append(c.X, cmplx.Rect(cmplx.Abs(aX), cmplx.Phase(b.X[i%length])))
+	}
+	if k(&c) {
+		return true
+	}
+	for i, cD := range c.D {
+		aX, bX := cmplx.Abs(a.X[i]), cmplx.Phase(b.X[i%length])
+		cos, sin := math.Cos(bX), math.Sin(bX)
+		a.D[i] += cD * complex(cos + sin, 0)
+		b.D[i%length] += cD * complex(aX * (cos - sin), 0)
+	}
+	return false
+}
+{{end}}
 
 // Op is a operation
 func Op(op Operation) func(a ...Meta) Meta {
