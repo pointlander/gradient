@@ -53,6 +53,28 @@ func NewV(s ...int) V {
 	}
 }
 
+// NewV create a new identity tensor value
+func Identity(s ...int) V {
+	if len(s) == 1 {
+		s = []int{s[0], 1}
+	}
+	if s[0] != s[1] {
+		panic("identity matrix must be square")
+	}
+	size := s[0] * s[1]
+	identity := V{
+		X: make([]complex128, size),
+		D: make([]complex128, size),
+		S: s,
+	}
+	j := 0
+	for i := 0; i < size; i += s[0] {
+		identity.X[i+j] = 1
+		j++
+	}
+	return identity
+}
+
 // Panic marks a place we should never get to
 func Panic(a *V) bool {
 	panic("should not be here")
@@ -212,8 +234,38 @@ func (context *Context) T(k Continuation, a *V) bool {
 	i := 0
 	for p := 0; p < a.S[0]; p++ {
 		for q := 0; q < a.S[1]; q++ {
-			a.D[q*a.S[0]+p] = c.D[i]
+			a.D[q*a.S[0]+p] += c.D[i]
 			i++
+		}
+	}
+	return false
+}
+
+// T the transpose of the matrix
+func (context *Context) Slice(k Continuation, a *V, b *V) bool {
+	if b.S[0] != 2 && b.S[1] != 1 {
+		panic("invalid size for slice")
+	}
+	width := a.S[0]
+
+	begin, end := int(cmplx.Abs(b.X[0])), int(cmplx.Abs(b.X[1]))
+
+	c, size := NewV(end-begin, a.S[1]), len(a.X)
+	for i := 0; i < size; i += width {
+		av := a.X[i+begin : i+end]
+		for _, ax := range av {
+			c.X = append(c.X, ax)
+		}
+	}
+	if k(&c) {
+		return true
+	}
+	index := 0
+	for i := 0; i < size; i += width {
+		ad := a.D[i+begin : i+end]
+		for j := range ad {
+			ad[j] += c.D[index]
+			index++
 		}
 	}
 	return false
@@ -710,8 +762,10 @@ var (
 	Mul = B(Static.Mul)
 	// Hadamard computes the hadamard product of two tensors
 	Hadamard = B(Static.Hadamard)
-	// // T the transpose of the matrix
+	// T the transpose of the matrix
 	T = U(Static.T)
+	// Slice slices the matrix
+	Slice = B(Static.Slice)
 	// Sin the sin of a tensors
 	Sin = U(Static.Sin)
 	// Cos the cosine of a tensor
