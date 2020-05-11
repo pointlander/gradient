@@ -371,6 +371,30 @@ func (context *Context) TanH(k Continuation, a *V) bool {
 	return false
 }
 
+// Everett computes the split reality activation function
+func (context *Context) Everett(k Continuation, a *V) bool {
+	c := NewV(2*a.S[0], a.S[1])
+	for _, j := range a.X {
+		min, max := j, j
+		if min > 0 {
+			min = 0
+		}
+		if max < 0 {
+			max = 0
+		}
+		c.X = append(c.X, min, max)
+	}
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		if c.X[i] != 0 {
+			a.D[i>>1] += j
+		}
+	}
+	return false
+}
+
 // Softmax is the softmax function
 func (context *Context) Softmax(k Continuation, a *V) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
@@ -763,6 +787,10 @@ var (
 	Sigmoid = U(Static.Sigmoid)
 	// TanH the hyperbolic tangent of a tensor
 	TanH = U(Static.TanH)
+
+	// Everett computes the split reality activation function
+	Everett = U(Static.Everett)
+
 	// Softmax is the softmax function
 	Softmax = U(Static.Softmax)
 	// Sum sums a vector

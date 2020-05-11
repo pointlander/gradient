@@ -778,6 +778,7 @@ var (
 	Sigmoid = U(Static.Sigmoid)
 	// TanH the hyperbolic tangent of a tensor
 	TanH = U(Static.TanH)
+
 	// Softmax is the softmax function
 	Softmax = U(Static.Softmax)
 	// Sum sums a vector
