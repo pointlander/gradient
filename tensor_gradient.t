@@ -422,7 +422,7 @@ func (context *Context) Everett(k Continuation, a *V) bool {
 		return true
 	}
 	for i, j := range c.D {
-		if c.X[i] != 0 {
+		if c.X[i] != 0 || (c.X[i&^1] == 0 && c.X[i|1] == 0) {
 			a.D[i>>1] += j
 		}
 	}
