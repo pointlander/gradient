@@ -277,6 +277,43 @@ func (context *Context) Slice(k Continuation, a *V, b *V) bool {
 	return false
 }
 
+// Concat concats two tensors
+func (context *Context) Concat(k Continuation, a, b *V) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	if a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	widthA, widthB := a.S[0], b.S[0]
+	c, i, j := NewV(widthA+widthB, a.S[1]), 0, 0
+	for r := 0; r < a.S[1]; r++ {
+		av, bv := a.X[i:i+widthA], b.X[j:j+widthB]
+		c.X = append(c.X, av...)
+		c.X = append(c.X, bv...)
+		i += widthA
+		j += widthB
+	}
+	if k(&c) {
+		return true
+	}
+	index, i, j := 0, 0, 0
+	for r := 0; r < a.S[1]; r++ {
+		ad, bd := a.D[i:i+widthA], b.D[j:j+widthB]
+		for s := range ad {
+			ad[s] = c.D[index]
+			index++
+		}
+		for s := range bd {
+			bd[s] = c.D[index]
+			index++
+		}
+		i += widthA
+		j += widthB
+	}
+	return false
+}
+
 // Sin the sine of a number
 func (context *Context) Sin(k Continuation, a *V) bool {
 	c := NewV(a.S...)
@@ -775,6 +812,8 @@ var (
 	T = U(Static.T)
 	// Slice slices the matrix
 	Slice = B(Static.Slice)
+	// Concat concats two tensors
+	Concat = B(Static.Concat)
 	// Sin the sin of a tensors
 	Sin = U(Static.Sin)
 	// Cos the cosine of a tensor
