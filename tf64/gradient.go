@@ -163,29 +163,39 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 	if width != b.S[0] {
 		panic("first dimension is not the same")
 	}
-	c := NewV(a.S[1], b.S[1])
-	sizeA, sizeB := len(a.X), len(b.X)
-	for i := 0; i < sizeB; i += width {
-		bv := b.X[i : i+width]
+	sizeA, sizeB, c, done :=
+		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
+	c.X = c.X[:cap(c.X)]
+	mul := func(bv []float64, i int) {
 		for j := 0; j < sizeA; j += width {
 			av, sum := a.X[j:j+width], float64(0.0)
 			for k, bx := range bv {
 				sum += av[k] * bx
 			}
-			c.X = append(c.X, sum)
+			c.X[i] = sum
+			i++
 		}
+		done <- true
+	}
+	index, step := 0, sizeA/width
+	for i := 0; i < sizeB; i += width {
+		go mul(b.X[i:i+width], index)
+		index += step
+	}
+	for i := 0; i < sizeB; i += width {
+		<-done
 	}
 	if k(&c) {
 		return true
 	}
-	index := 0
+	index = 0
 	for i := 0; i < sizeB; i += width {
 		bv, bd := b.X[i:i+width], b.D[i:i+width]
 		for j := 0; j < sizeA; j += width {
-			av, ad := a.X[j:j+width], a.D[j:j+width]
+			av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
 			for k, bx := range bv {
-				ad[k] += bx * c.D[index]
-				bd[k] += av[k] * c.D[index]
+				ad[k] += bx * cd
+				bd[k] += av[k] * cd
 			}
 			index++
 		}
