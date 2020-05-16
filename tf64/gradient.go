@@ -188,28 +188,16 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 	if k(&c) {
 		return true
 	}
-	d := make(chan []float64, 8)
-	derive := func(bv, bd []float64, i int) {
-		ad := make([]float64, 0, len(a.D))
-		for j := 0; j < sizeA; j += width {
-			av, cd := a.X[j:j+width], c.D[i]
-			for k, bx := range bv {
-				ad = append(ad, bx*cd)
-				bd[k] += av[k] * cd
-			}
-			i++
-		}
-		d <- ad
-	}
 	index = 0
 	for i := 0; i < sizeB; i += width {
-		go derive(b.X[i:i+width], b.D[i:i+width], index)
-		index += step
-	}
-	for i := 0; i < sizeB; i += width {
-		aD := <-d
-		for j, ad := range aD {
-			a.D[j] += ad
+		bv, bd := b.X[i:i+width], b.D[i:i+width]
+		for j := 0; j < sizeA; j += width {
+			av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
+			for k, bx := range bv {
+				ad[k] += bx * cd
+				bd[k] += av[k] * cd
+			}
+			index++
 		}
 	}
 	return false
