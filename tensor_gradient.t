@@ -116,6 +116,15 @@ func Panic(a *V) bool {
 	return false
 }
 
+// Copy copies the weights of the value
+func (a *V) Copy() V {
+	return V{
+		X: a.X,
+		D: make([]{{.Type}}, len(a.D)),
+		S: a.S,
+	}
+}
+
 // Meta returns a meta for the value
 func (a *V) Meta() Meta {
 	return func(k Continuation) Continuation {
