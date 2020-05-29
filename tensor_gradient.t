@@ -6,21 +6,45 @@ package {{.Package}}
 
 import (
 {{if eq .Type "float64"}}
+	"io/ioutil"
 	"math"
+	"os"
+
+	"github.com/golang/protobuf/proto"
+
+	pro "github.com/pointlander/gradient/tf64/proto"
 {{else if eq .Type "float32"}}
+	"io/ioutil"
   "math"
+	"os"
+
+	"github.com/golang/protobuf/proto"
+
+	pro "github.com/pointlander/gradient/tf32/proto"
 {{else if eq .Type "complex128"}}
+	"io/ioutil"
 	"math"
   "math/cmplx"
+	"os"
+
+	"github.com/golang/protobuf/proto"
+
+	pro "github.com/pointlander/gradient/tc128/proto"
 {{end}}
 )
 
 type (
 	// V is a tensor value
 	V struct {
+		N string // the name
 		X []{{.Type}} // the tensor
 		D []{{.Type}} // the derivative
 		S []int     // the shape
+	}
+	// Set is a set of V
+	Set struct {
+		Weights []V
+		ByName map[string]*V
 	}
 	// Continuation is a continuation
 	Continuation func(a *V) bool
@@ -119,6 +143,7 @@ func Panic(a *V) bool {
 // Copy copies the weights of the value
 func (a *V) Copy() V {
 	return V{
+		N: a.N,
 		X: a.X,
 		D: make([]{{.Type}}, len(a.D)),
 		S: a.S,
@@ -151,6 +176,186 @@ func (a *V) Set(values []{{.Type}}) {
 	}
 	a.Zero()
 }
+
+// NewSet creates a new weight set
+func NewSet() Set {
+	return Set{
+		ByName: make(map[string]*V),
+	}
+}
+
+// Add adds weights to a set
+func (s *Set) Add(name string, d ...int) {
+	v := NewV(d...)
+	v.N = name
+	last := len(s.Weights)
+	s.Weights = append(s.Weights, v)
+	s.ByName[name] = &s.Weights[last]
+}
+
+// Get gets weights from the set by name
+func (s *Set) Get(name string) Meta {
+	return s.ByName[name].Meta()
+}
+
+// Copy generates a copy of a set
+func (s *Set) Copy() Set {
+	n := NewSet()
+	for i := range s.Weights {
+		cp := s.Weights[i].Copy()
+		n.Weights = append(n.Weights, cp)
+		n.ByName[cp.N] = &n.Weights[i]
+	}
+	return n
+}
+
+// Zero zeros the partial derivatives
+func (s *Set) Zero() {
+	for i := range s.Weights {
+		s.Weights[i].Zero()
+	}
+}
+
+{{if or (eq .Type "float64") (eq .Type "float32")}}
+// Save saves a set of weights
+func (s *Set) Save(file string, cost {{.Type}}, epoch int) error {
+	set := pro.Set{
+		Cost:  float64(cost),
+		Epoch: uint64(epoch),
+	}
+	for _, w := range s.Weights {
+		shape := make([]int64, len(w.S))
+		for i := range shape {
+			shape[i] = int64(w.S[i])
+		}
+		weights := pro.Weights{
+			Name:   w.N,
+			Shape:  shape,
+			Values: w.X,
+		}
+		set.Weights = append(set.Weights, &weights)
+	}
+	out, err := proto.Marshal(&set)
+	if err != nil {
+		return err
+	}
+	output, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	defer output.Close()
+	_, err = output.Write(out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Open opens a set of weights
+func (s *Set) Open(name string) ({{.Type}}, int, error) {
+	in, err := ioutil.ReadFile(name)
+	if err != nil {
+		return 0, 0, err
+	}
+	set := pro.Set{}
+	err = proto.Unmarshal(in, &set)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for _, w := range set.Weights {
+		shape := make([]int, len(w.Shape))
+		for i, s := range w.Shape {
+			shape[i] = int(s)
+		}
+		v := V{
+			N: w.Name,
+			X: w.Values,
+			D: make([]{{.Type}}, len(w.Values)),
+			S: shape,
+		}
+		last := len(s.Weights)
+		s.Weights = append(s.Weights, v)
+		s.ByName[v.N] = &s.Weights[last]
+	}
+	return {{.Type}}(set.Cost), int(set.Epoch), nil
+}
+{{else if eq .Type "complex128"}}
+func (s *Set) Save(file string, cost {{.Type}}, epoch int) error {
+	set := pro.Set{
+		CostReal: real(cost),
+		CostImaginary: imag(cost),
+		Epoch: uint64(epoch),
+	}
+	for _, w := range s.Weights {
+		shape := make([]int64, len(w.S))
+		for i := range shape {
+			shape[i] = int64(w.S[i])
+		}
+		values, c := make([]float64, 2*len(w.X)), 0
+		for _, x := range w.X {
+			values[c] = real(x)
+			c++
+			values[c] = imag(x)
+			c++
+		}
+		weights := pro.Weights{
+			Name:   w.N,
+			Shape:  shape,
+			Values: values,
+		}
+		set.Weights = append(set.Weights, &weights)
+	}
+	out, err := proto.Marshal(&set)
+	if err != nil {
+		return err
+	}
+	output, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	defer output.Close()
+	_, err = output.Write(out)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Open opens a set of weights
+func (s *Set) Open(name string) ({{.Type}}, int, error) {
+	in, err := ioutil.ReadFile(name)
+	if err != nil {
+		return 0, 0, err
+	}
+	set := pro.Set{}
+	err = proto.Unmarshal(in, &set)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for _, w := range set.Weights {
+		shape := make([]int, len(w.Shape))
+		for i, s := range w.Shape {
+			shape[i] = int(s)
+		}
+		x := make([]{{.Type}}, len(w.Values)/2)
+		for i := 0; i < len(w.Values); i += 2 {
+			x[i>>1] = complex(w.Values[i], w.Values[i+1])
+		}
+		v := V{
+			N: w.Name,
+			X: x,
+			D: make([]{{.Type}}, len(w.Values)),
+			S: shape,
+		}
+		last := len(s.Weights)
+		s.Weights = append(s.Weights, v)
+		s.ByName[v.N] = &s.Weights[last]
+	}
+	return complex(set.CostReal, set.CostImaginary), int(set.Epoch), nil
+}
+{{end}}
 
 // Context is a function context
 type Context struct {

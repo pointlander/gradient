@@ -1,0 +1,16 @@
+syntax = "proto3";
+package proto;
+
+option go_package = ".;proto";
+
+message Weights {
+  string Name = 1;
+  repeated int64 Shape = 2;
+  repeated float Values = 3;
+}
+
+message Set {
+  double Cost = 1;
+  uint64 Epoch = 2;
+  repeated Weights Weights = 3;
+}
