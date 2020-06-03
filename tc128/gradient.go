@@ -25,7 +25,7 @@ type (
 	}
 	// Set is a set of V
 	Set struct {
-		Weights []V
+		Weights []*V
 		ByName  map[string]*V
 	}
 	// Continuation is a continuation
@@ -141,9 +141,8 @@ func NewSet() Set {
 func (s *Set) Add(name string, d ...int) {
 	v := NewV(d...)
 	v.N = name
-	last := len(s.Weights)
-	s.Weights = append(s.Weights, v)
-	s.ByName[name] = &s.Weights[last]
+	s.Weights = append(s.Weights, &v)
+	s.ByName[name] = &v
 }
 
 // Get gets weights from the set by name
@@ -156,8 +155,8 @@ func (s *Set) Copy() Set {
 	n := NewSet()
 	for i := range s.Weights {
 		cp := s.Weights[i].Copy()
-		n.Weights = append(n.Weights, cp)
-		n.ByName[cp.N] = &n.Weights[i]
+		n.Weights = append(n.Weights, &cp)
+		n.ByName[cp.N] = &cp
 	}
 	return n
 }
@@ -237,9 +236,8 @@ func (s *Set) Open(name string) (complex128, int, error) {
 			D: make([]complex128, len(w.Values)),
 			S: shape,
 		}
-		last := len(s.Weights)
-		s.Weights = append(s.Weights, v)
-		s.ByName[v.N] = &s.Weights[last]
+		s.Weights = append(s.Weights, &v)
+		s.ByName[v.N] = &v
 	}
 	return complex(set.CostReal, set.CostImaginary), int(set.Epoch), nil
 }
