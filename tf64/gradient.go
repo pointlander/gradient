@@ -555,6 +555,26 @@ func (context *Context) Everett(k Continuation, a *V) bool {
 	return false
 }
 
+func (context *Context) EverettReLu(k Continuation, a *V) bool {
+	c := NewV(2*a.S[0], a.S[1])
+	for _, j := range a.X {
+		max := j
+		if max < 0 {
+			max = 0
+		}
+		c.X = append(c.X, 0, max)
+	}
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		if c.X[i] != 0 || (c.X[i&^1] == 0 && c.X[i|1] == 0) {
+			a.D[i>>1] += j
+		}
+	}
+	return false
+}
+
 // Softmax is the softmax function
 func (context *Context) Softmax(k Continuation, a *V) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
