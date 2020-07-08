@@ -1140,6 +1140,7 @@ var (
 {{if or (eq .Type "float64") (eq .Type "float32")}}
 	// Everett computes the split reality activation function
 	Everett = U(Static.Everett)
+	EverettReLu = U(Static.EverettReLu)
 {{end}}
 	// Softmax is the softmax function
 	Softmax = U(Static.Softmax)

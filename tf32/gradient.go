@@ -981,7 +981,8 @@ var (
 	TanH = U(Static.TanH)
 
 	// Everett computes the split reality activation function
-	Everett = U(Static.Everett)
+	Everett     = U(Static.Everett)
+	EverettReLu = U(Static.EverettReLu)
 
 	// Softmax is the softmax function
 	Softmax = U(Static.Softmax)
