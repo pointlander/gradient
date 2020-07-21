@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math"
 	"math/cmplx"
+	"math/rand"
 	"os"
 
 	"github.com/golang/protobuf/proto"
@@ -244,6 +245,8 @@ func (s *Set) Open(name string) (complex128, int, error) {
 
 // Context is a function context
 type Context struct {
+	RNG     *rand.Rand
+	Dropout float64
 }
 
 // Add adds two tensors
@@ -335,6 +338,71 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 				ad[k] += bx * cd
 				bd[k] += av[k] * cd
 			}
+			index++
+		}
+	}
+	return false
+}
+
+// MulDropout multiplies two tensors with drop out
+func (context *Context) MulDropout(k Continuation, a, b *V) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] {
+		panic("first dimension is not the same")
+	}
+	sizeA, sizeB, c, done :=
+		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
+	c.X = c.X[:cap(c.X)]
+	rng, mask, dropout := context.RNG, make([]bool, a.S[1]), context.Dropout
+	for i := range mask {
+		if rng.Float64() > dropout {
+			mask[i] = true
+		}
+	}
+	mul := func(bv []complex128, i int) {
+		offset := 0
+		for j := 0; j < sizeA; j += width {
+			if mask[offset] {
+				offset++
+				continue
+			}
+			av, sum := a.X[j:j+width], complex128(0.0)
+			for k, bx := range bv {
+				sum += av[k] * bx
+			}
+			c.X[i+offset] = sum
+			offset++
+		}
+		done <- true
+	}
+	index, step := 0, sizeA/width
+	for i := 0; i < sizeB; i += width {
+		go mul(b.X[i:i+width], index)
+		index += step
+	}
+	for i := 0; i < sizeB; i += width {
+		<-done
+	}
+	if k(&c) {
+		return true
+	}
+	index = 0
+	for i := 0; i < sizeB; i += width {
+		bv, bd, m := b.X[i:i+width], b.D[i:i+width], 0
+		for j := 0; j < sizeA; j += width {
+			if mask[m] {
+				m++
+				continue
+			}
+			av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
+			for k, bx := range bv {
+				ad[k] += bx * cd
+				bd[k] += av[k] * cd
+			}
+			m++
 			index++
 		}
 	}
