@@ -230,7 +230,7 @@ func (s *Set) Open(name string) (float64, int, error) {
 
 // Context is a function context
 type Context struct {
-	RNG     *rand.Rand
+	Seed    int64
 	Dropout float64
 }
 
@@ -251,6 +251,42 @@ func (context *Context) Add(k Continuation, a, b *V) bool {
 		return true
 	}
 	for i, j := range c.D {
+		a.D[i] += j
+		b.D[i%length] += j
+	}
+	return false
+}
+
+// AddDropout adds two tensors with dropout
+func (context *Context) AddDropout(k Continuation, a, b *V) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width, length := a.S[0], len(b.X)
+	if width != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
+		panic("dimensions are not the same")
+	}
+	rng, mask, dropout := rand.New(rand.NewSource(context.Seed)), make([]bool, width), context.Dropout
+	for i := range mask {
+		if rng.Float64() > dropout {
+			mask[i] = true
+		}
+	}
+	c := NewV(a.S...)
+	for i, j := range a.X {
+		if mask[i%width] {
+			c.X = append(c.X, 0)
+			continue
+		}
+		c.X = append(c.X, j+b.X[i%length])
+	}
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		if mask[i%width] {
+			continue
+		}
 		a.D[i] += j
 		b.D[i%length] += j
 	}
@@ -341,7 +377,7 @@ func (context *Context) MulDropout(k Continuation, a, b *V) bool {
 	sizeA, sizeB, c, done :=
 		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
 	c.X = c.X[:cap(c.X)]
-	rng, mask, dropout := context.RNG, make([]bool, a.S[1]), context.Dropout
+	rng, mask, dropout := rand.New(rand.NewSource(context.Seed)), make([]bool, a.S[1]), context.Dropout
 	for i := range mask {
 		if rng.Float64() > dropout {
 			mask[i] = true
@@ -376,10 +412,11 @@ func (context *Context) MulDropout(k Continuation, a, b *V) bool {
 	}
 	index = 0
 	for i := 0; i < sizeB; i += width {
-		bv, bd, m := b.X[i:i+width], b.D[i:i+width], 0
+		bv, bd, neuron := b.X[i:i+width], b.D[i:i+width], 0
 		for j := 0; j < sizeA; j += width {
-			if mask[m] {
-				m++
+			if mask[neuron] {
+				neuron++
+				index++
 				continue
 			}
 			av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
@@ -387,7 +424,7 @@ func (context *Context) MulDropout(k Continuation, a, b *V) bool {
 				ad[k] += bx * cd
 				bd[k] += av[k] * cd
 			}
-			m++
+			neuron++
 			index++
 		}
 	}
