@@ -271,6 +271,41 @@ func (context *Context) Add(k Continuation, a, b *V) bool {
 		panic("dimensions are not the same")
 	}
 	c := NewV(a.S...)
+	if a.Seed != 0 {
+		dropout, index := uint32((1-a.Drop)*math.MaxUint32), 0
+		c.Seed, c.Drop = a.Seed, a.Drop
+		for i := 0; i < a.S[1]; i++ {
+			rng := a.Seed
+			for j := 0; j < a.S[0]; j++ {
+				if rng.Next() > dropout {
+					c.X = append(c.X, 0)
+					index++
+					continue
+				}
+				c.X = append(c.X, a.X[index]+b.X[index%length])
+				index++
+			}
+		}
+		if k(&c) {
+			return true
+		}
+		index = 0
+		for i := 0; i < a.S[1]; i++ {
+			rng := a.Seed
+			for j := 0; j < a.S[0]; j++ {
+				if rng.Next() > dropout {
+					index++
+					continue
+				}
+				d := c.D[index]
+				a.D[index] += d
+				b.D[index%length] += d
+				index++
+			}
+		}
+		return false
+	}
+
 	for i, j := range a.X {
 		c.X = append(c.X, j+b.X[i%length])
 	}
@@ -280,49 +315,6 @@ func (context *Context) Add(k Continuation, a, b *V) bool {
 	for i, j := range c.D {
 		a.D[i] += j
 		b.D[i%length] += j
-	}
-	return false
-}
-
-// AddDropout adds two tensors with dropout
-func (context *Context) AddDropout(k Continuation, a, b *V) bool {
-	if len(a.S) != 2 || len(b.S) != 2 {
-		panic("tensor needs to have two dimensions")
-	}
-	width, length := a.S[0], len(b.X)
-	if width != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
-		panic("dimensions are not the same")
-	}
-	dropout, index, c := uint32((1-a.Drop)*math.MaxUint32), 0, NewV(a.S...)
-	c.Seed, c.Drop = a.Seed, a.Drop
-	for i := 0; i < a.S[1]; i++ {
-		rng := a.Seed
-		for j := 0; j < a.S[0]; j++ {
-			if rng.Next() > dropout {
-				c.X = append(c.X, 0)
-				index++
-				continue
-			}
-			c.X = append(c.X, a.X[index]+b.X[index%length])
-			index++
-		}
-	}
-	if k(&c) {
-		return true
-	}
-	index = 0
-	for i := 0; i < a.S[1]; i++ {
-		rng := a.Seed
-		for j := 0; j < a.S[0]; j++ {
-			if rng.Next() > dropout {
-				index++
-				continue
-			}
-			d := c.D[index]
-			a.D[index] += d
-			b.D[index%length] += d
-			index++
-		}
 	}
 	return false
 }
@@ -362,6 +354,55 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 	sizeA, sizeB, c, done :=
 		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
 	c.X = c.X[:cap(c.X)]
+	if a.Seed != 0 {
+		c.Seed, c.Drop = a.Seed, a.Drop
+		dropout := uint32((1 - a.Drop) * math.MaxUint32)
+		mul := func(bv []complex128, i int) {
+			rng := a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					i++
+					continue
+				}
+				av, sum := a.X[j:j+width], complex128(0.0)
+				for k, bx := range bv {
+					sum += av[k] * bx
+				}
+				c.X[i] = sum
+				i++
+			}
+			done <- true
+		}
+		index, step := 0, sizeA/width
+		for i := 0; i < sizeB; i += width {
+			go mul(b.X[i:i+width], index)
+			index += step
+		}
+		for i := 0; i < sizeB; i += width {
+			<-done
+		}
+		if k(&c) {
+			return true
+		}
+		index = 0
+		for i := 0; i < sizeB; i += width {
+			bv, bd, rng := b.X[i:i+width], b.D[i:i+width], a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					index++
+					continue
+				}
+				av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
+				for k, bx := range bv {
+					ad[k] += bx * cd
+					bd[k] += av[k] * cd
+				}
+				index++
+			}
+		}
+		return false
+	}
+
 	mul := func(bv []complex128, i int) {
 		for j := 0; j < sizeA; j += width {
 			av, sum := a.X[j:j+width], complex128(0.0)
@@ -388,65 +429,6 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 	for i := 0; i < sizeB; i += width {
 		bv, bd := b.X[i:i+width], b.D[i:i+width]
 		for j := 0; j < sizeA; j += width {
-			av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
-			for k, bx := range bv {
-				ad[k] += bx * cd
-				bd[k] += av[k] * cd
-			}
-			index++
-		}
-	}
-	return false
-}
-
-// MulDropout multiplies two tensors with drop out
-func (context *Context) MulDropout(k Continuation, a, b *V) bool {
-	if len(a.S) != 2 || len(b.S) != 2 {
-		panic("tensor needs to have two dimensions")
-	}
-	width := a.S[0]
-	if width != b.S[0] {
-		panic("first dimension is not the same")
-	}
-	sizeA, sizeB, c, done :=
-		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
-	c.X, c.Seed, c.Drop = c.X[:cap(c.X)], a.Seed, a.Drop
-	dropout := uint32((1 - a.Drop) * math.MaxUint32)
-	mul := func(bv []complex128, i int) {
-		rng := a.Seed
-		for j := 0; j < sizeA; j += width {
-			if rng.Next() > dropout {
-				i++
-				continue
-			}
-			av, sum := a.X[j:j+width], complex128(0.0)
-			for k, bx := range bv {
-				sum += av[k] * bx
-			}
-			c.X[i] = sum
-			i++
-		}
-		done <- true
-	}
-	index, step := 0, sizeA/width
-	for i := 0; i < sizeB; i += width {
-		go mul(b.X[i:i+width], index)
-		index += step
-	}
-	for i := 0; i < sizeB; i += width {
-		<-done
-	}
-	if k(&c) {
-		return true
-	}
-	index = 0
-	for i := 0; i < sizeB; i += width {
-		bv, bd, rng := b.X[i:i+width], b.D[i:i+width], a.Seed
-		for j := 0; j < sizeA; j += width {
-			if rng.Next() > dropout {
-				index++
-				continue
-			}
 			av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
 			for k, bx := range bv {
 				ad[k] += bx * cd
