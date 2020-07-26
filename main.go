@@ -6,11 +6,13 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"io/ioutil"
+	"math"
 	"os"
 	"text/template"
 )
@@ -60,7 +62,38 @@ func (g *Gradient) Execute() {
 	}
 }
 
+var (
+	// LFSR find LFSR polynomials
+	LFSR = flag.Bool("lfsr", false, "find LFSR polynomials")
+)
+
 func main() {
+	flag.Parse()
+
+	if *LFSR {
+		// https://en.wikipedia.org/wiki/Linear-feedback_shift_register
+		// https://users.ece.cmu.edu/~koopman/lfsr/index.html
+		count, polynomial := 0, uint32(0x80000000)
+		for polynomial != 0 {
+			lfsr, period := uint32(1), 0
+			for {
+				lfsr = (lfsr >> 1) ^ (-(lfsr & 1) & polynomial)
+				period++
+				if lfsr == 1 {
+					break
+				}
+			}
+			fmt.Printf("%v period=%v\n", count, period)
+			if period == math.MaxUint32 {
+				fmt.Printf("%x\n", polynomial)
+				return
+			}
+			count++
+			polynomial++
+		}
+		return
+	}
+
 	gradients := []Gradient{
 		{
 			input:   "scalar_gradient.t",

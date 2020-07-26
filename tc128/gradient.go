@@ -16,6 +16,9 @@ import (
 	pro "github.com/pointlander/gradient/tc128/proto"
 )
 
+// LFSRMask is a LFSR mask with a maximum period
+const LFSRMask = 0x80000057
+
 type (
 	// V is a tensor value
 	V struct {
