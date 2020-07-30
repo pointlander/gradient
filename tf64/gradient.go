@@ -662,15 +662,18 @@ func (context *Context) Everett(k Continuation, a *V) bool {
 		index = 0
 		for i := 0; i < a.S[1]; i++ {
 			rng := a.Seed
-			for j := 0; j < 2*a.S[0]; j++ {
+			for j := 0; j < a.S[0]; j++ {
 				if rng.Next() > dropout {
-					index++
+					index += 2
 					continue
 				}
-				if c.X[index] != 0 || (c.X[index&^1] == 0 && c.X[index|1] == 0) {
+				if c.X[index] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
 					a.D[index>>1] += c.D[index]
 				}
-				index++
+				if c.X[index+1] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
+					a.D[index>>1] += c.D[index+1]
+				}
+				index += 2
 			}
 		}
 		return false
