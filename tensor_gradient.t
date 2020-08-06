@@ -476,10 +476,15 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 					i++
 					continue
 				}
+				{{if or (eq .Type "float64") (eq .Type "float32")}}
+				av := a.X[j:j+width]
+				sum := dot(av, bv)
+				{{else if eq .Type "complex128"}}
 				av, sum := a.X[j:j+width], {{.Type}}(0.0)
 				for k, bx := range bv {
 					sum += av[k] * bx
 				}
+				{{end}}
 				c.X[i] = sum
 				i++
 			}

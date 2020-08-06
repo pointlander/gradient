@@ -349,10 +349,10 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 					i++
 					continue
 				}
-				av, sum := a.X[j:j+width], float64(0.0)
-				for k, bx := range bv {
-					sum += av[k] * bx
-				}
+
+				av := a.X[j : j+width]
+				sum := dot(av, bv)
+
 				c.X[i] = sum
 				i++
 			}
