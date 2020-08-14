@@ -13,3 +13,9 @@ func dot(X, Y []float32) float32 {
 	}
 	return sum
 }
+
+func axpy(alpha float32, X []float32, Y []float32) {
+	for i, y := range Y {
+		Y[i] = alpha*X[i] + y
+	}
+}

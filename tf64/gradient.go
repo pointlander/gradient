@@ -379,9 +379,9 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 				rows, bi := a.S[1], 0
 				for i := 0; i < sizeB; i += width {
 					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
-					for k, bx := range bv {
-						ad[k] += bx * cd
-					}
+
+					axpy(cd, bv, ad)
+
 					bi++
 				}
 				derivativeDone <- true
@@ -416,9 +416,9 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 					continue
 				}
 				av, cd := a.X[j:j+width], c.D[index]
-				for k, ax := range av {
-					bd[k] += ax * cd
-				}
+
+				axpy(cd, av, bd)
+
 				index++
 			}
 			derivativeDone <- true
@@ -469,9 +469,9 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 			rows, bi := a.S[1], 0
 			for i := 0; i < sizeB; i += width {
 				bv, cd := b.X[i:i+width], c.D[index+bi*rows]
-				for k, bx := range bv {
-					ad[k] += bx * cd
-				}
+
+				axpy(cd, bv, ad)
+
 				bi++
 			}
 			derivativeDone <- true
@@ -493,9 +493,9 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 	derivatives := func(index int, bd []float64) {
 		for j := 0; j < sizeA; j += width {
 			av, cd := a.X[j:j+width], c.D[index]
-			for k, ax := range av {
-				bd[k] += ax * cd
-			}
+
+			axpy(cd, av, bd)
+
 			index++
 		}
 		derivativeDone <- true

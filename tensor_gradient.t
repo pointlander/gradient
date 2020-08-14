@@ -511,9 +511,13 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 				rows, bi := a.S[1], 0
 				for i := 0; i < sizeB; i += width {
 					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
+					{{if or (eq .Type "float64") (eq .Type "float32")}}
+					axpy(cd, bv, ad)
+					{{else if eq .Type "complex128"}}
 					for k, bx := range bv {
 						ad[k] += bx * cd
 					}
+					{{end}}
 					bi++
 				}
 				derivativeDone <- true
@@ -548,9 +552,13 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 					continue
 				}
 				av, cd := a.X[j:j+width], c.D[index]
+				{{if or (eq .Type "float64") (eq .Type "float32")}}
+				axpy(cd, av, bd)
+				{{else if eq .Type "complex128"}}
 				for k, ax := range av {
 					bd[k] += ax * cd
 				}
+				{{end}}
 				index++
 			}
 			derivativeDone <- true
@@ -601,9 +609,13 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 			rows, bi := a.S[1], 0
 			for i := 0; i < sizeB; i += width {
 				bv, cd := b.X[i:i+width], c.D[index+bi*rows]
+				{{if or (eq .Type "float64") (eq .Type "float32")}}
+				axpy(cd, bv, ad)
+				{{else if eq .Type "complex128"}}
 				for k, bx := range bv {
 					ad[k] += bx * cd
 				}
+				{{end}}
 				bi++
 			}
 			derivativeDone <- true
@@ -625,9 +637,13 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 	derivatives := func(index int, bd []{{.Type}}) {
 		for j := 0; j < sizeA; j += width {
 			av, cd := a.X[j:j+width], c.D[index]
+			{{if or (eq .Type "float64") (eq .Type "float32")}}
+			axpy(cd, av, bd)
+			{{else if eq .Type "complex128"}}
 			for k, ax := range av {
 				bd[k] += ax * cd
 			}
+			{{end}}
 			index++
 		}
 		derivativeDone <- true

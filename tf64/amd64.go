@@ -13,3 +13,7 @@ import (
 func dot(X, Y []float64) float64 {
 	return blas.Ddot(len(X), X, 1, Y, 1)
 }
+
+func axpy(alpha float64, X []float64, Y []float64) {
+	blas.Daxpy(len(X), alpha, X, 1, Y, 1)
+}
