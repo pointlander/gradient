@@ -386,22 +386,71 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 		if k(&c) {
 			return true
 		}
-		index = 0
-		for i := 0; i < sizeB; i += width {
-			bv, bd, rng := b.X[i:i+width], b.D[i:i+width], a.Seed
+
+		done = make(chan bool, 8)
+
+		// a derivatives
+		go func() {
+			derivativeDone := make(chan bool, 8)
+			derivatives := func(index int, ad []complex128) {
+				rows, bi := a.S[1], 0
+				for i := 0; i < sizeB; i += width {
+					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
+					for k, bx := range bv {
+						ad[k] += bx * cd
+					}
+					bi++
+				}
+				derivativeDone <- true
+			}
+			index, rng := 0, a.Seed
 			for j := 0; j < sizeA; j += width {
 				if rng.Next() > dropout {
 					index++
 					continue
 				}
-				av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
-				for k, bx := range bv {
-					ad[k] += bx * cd
-					bd[k] += av[k] * cd
+				ad := a.D[j : j+width]
+				go derivatives(index, ad)
+				index++
+			}
+			rng = a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					continue
+				}
+				<-derivativeDone
+			}
+			done <- true
+		}()
+
+		// b derivatives
+		derivativeDone := make(chan bool, 8)
+		derivatives := func(index int, bd []complex128) {
+			rng := a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					index++
+					continue
+				}
+				av, cd := a.X[j:j+width], c.D[index]
+				for k, ax := range av {
+					bd[k] += ax * cd
 				}
 				index++
 			}
+			derivativeDone <- true
 		}
+		index, rows := 0, a.S[1]
+		for i := 0; i < sizeB; i += width {
+			bd := b.D[i : i+width]
+			go derivatives(index, bd)
+			index += rows
+		}
+		for i := 0; i < sizeB; i += width {
+			<-derivativeDone
+		}
+		<-done
+
 		return false
 	}
 
@@ -427,18 +476,58 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 	if k(&c) {
 		return true
 	}
-	index = 0
-	for i := 0; i < sizeB; i += width {
-		bv, bd := b.X[i:i+width], b.D[i:i+width]
+
+	done = make(chan bool, 8)
+
+	// a derivatives
+	go func() {
+		derivativeDone := make(chan bool, 8)
+		derivatives := func(index int, ad []complex128) {
+			rows, bi := a.S[1], 0
+			for i := 0; i < sizeB; i += width {
+				bv, cd := b.X[i:i+width], c.D[index+bi*rows]
+				for k, bx := range bv {
+					ad[k] += bx * cd
+				}
+				bi++
+			}
+			derivativeDone <- true
+		}
+		index := 0
 		for j := 0; j < sizeA; j += width {
-			av, ad, cd := a.X[j:j+width], a.D[j:j+width], c.D[index]
-			for k, bx := range bv {
-				ad[k] += bx * cd
-				bd[k] += av[k] * cd
+			ad := a.D[j : j+width]
+			go derivatives(index, ad)
+			index++
+		}
+		for j := 0; j < sizeA; j += width {
+			<-derivativeDone
+		}
+		done <- true
+	}()
+
+	// b derivatives
+	derivativeDone := make(chan bool, 8)
+	derivatives := func(index int, bd []complex128) {
+		for j := 0; j < sizeA; j += width {
+			av, cd := a.X[j:j+width], c.D[index]
+			for k, ax := range av {
+				bd[k] += ax * cd
 			}
 			index++
 		}
+		derivativeDone <- true
 	}
+	index, rows := 0, a.S[1]
+	for i := 0; i < sizeB; i += width {
+		bd := b.D[i : i+width]
+		go derivatives(index, bd)
+		index += rows
+	}
+	for i := 0; i < sizeB; i += width {
+		<-derivativeDone
+	}
+	<-done
+
 	return false
 }
 
