@@ -12,7 +12,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	pro "github.com/pointlander/gradient/tf64/proto"
+	pro "github.com/pointlander/gradient/tf64/proto_tf64"
 {{else if eq .Type "float32"}}
 	"io/ioutil"
   "math"
@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	pro "github.com/pointlander/gradient/tf32/proto"
+	pro "github.com/pointlander/gradient/tf32/proto_tf32"
 {{else if eq .Type "complex128"}}
 	"io/ioutil"
 	"math"
@@ -29,7 +29,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	pro "github.com/pointlander/gradient/tc128/proto"
+	pro "github.com/pointlander/gradient/tc128/proto_tc128"
 {{end}}
 )
 

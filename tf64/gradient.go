@@ -11,7 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	pro "github.com/pointlander/gradient/tf64/proto"
+	pro "github.com/pointlander/gradient/tf64/proto_tf64"
 )
 
 // LFSRMask is a LFSR mask with a maximum period

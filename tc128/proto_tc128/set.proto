@@ -1,7 +1,7 @@
 syntax = "proto3";
-package proto;
+package proto_tc128;
 
-option go_package = ".;proto";
+option go_package = ".;proto_tc128";
 
 message Weights {
   string Name = 1;
