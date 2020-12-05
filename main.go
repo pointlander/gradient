@@ -96,6 +96,12 @@ func main() {
 
 	gradients := []Gradient{
 		{
+			input:   "float_gradient.t",
+			output:  "float/gradient.go",
+			Package: "float",
+			Type:    "big.Float",
+		},
+		{
 			input:   "scalar_gradient.t",
 			output:  "sf64/gradient.go",
 			Package: "sf64",
