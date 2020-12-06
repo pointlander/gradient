@@ -43,12 +43,14 @@ func (a *V) Meta() Meta {
 
 // Context is a function context
 type Context struct {
-
+  Precision uint
 }
 
 // Add adds two numbers
 func (context *Context) Add(k Continuation, a, b *V) bool {
   c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X.Add(&a.X, &b.X)
 	if k(&c) {
 		return true
@@ -61,6 +63,8 @@ func (context *Context) Add(k Continuation, a, b *V) bool {
 // Sub subtracts two numbers
 func (context *Context) Sub(k Continuation, a, b *V) bool {
   c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X.Sub(&a.X, &b.X)
 	if k(&c) {
 		return true
@@ -73,11 +77,14 @@ func (context *Context) Sub(k Continuation, a, b *V) bool {
 // Mul multiplies two numbers
 func (context *Context) Mul(k Continuation, a, b *V) bool {
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X.Mul(&a.X, &b.X)
 	if k(&c) {
 		return true
 	}
   d := big.Float{}
+  d.SetPrec(context.Precision)
   d.Mul(&b.X, &c.D)
 	a.D.Add(&a.D, &d)
   c.D.Mul(&a.X, &c.D)
@@ -88,6 +95,8 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 // Div divides two numbers
 func (context *Context) Div(k Continuation, a, b *V) bool {
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X.Quo(&a.X, &b.X)
 	if k(&c) {
 		return true
@@ -95,6 +104,7 @@ func (context *Context) Div(k Continuation, a, b *V) bool {
 	a.D.Add(&a.D, c.D.Quo(&c.D, &b.X))
   c.D.Mul(&c.D, &a.X)
   d := big.Float{}
+  d.SetPrec(context.Precision)
   d.Mul(&b.X, &b.X)
   c.D.Quo(&c.D, &d)
   b.D.Sub(&b.D, &c.D)
@@ -104,6 +114,8 @@ func (context *Context) Div(k Continuation, a, b *V) bool {
 // Sin the sine of a number
 func (context *Context) Sin(k Continuation, a *V) bool {
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X = *bigfloat.Sin(&a.X)
 	if k(&c) {
 		return true
@@ -117,6 +129,8 @@ func (context *Context) Sin(k Continuation, a *V) bool {
 // Cos the cosine of a number
 func (context *Context) Cos(k Continuation, a *V) bool {
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X = *bigfloat.Cos(&a.X)
 	if k(&c) {
 		return true
@@ -130,6 +144,8 @@ func (context *Context) Cos(k Continuation, a *V) bool {
 // Exp the base e exponential
 func (context *Context) Exp(k Continuation, a *V) bool {
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X = *bigfloat.Exp(&a.X)
 	if k(&c) {
 		return true
@@ -142,6 +158,8 @@ func (context *Context) Exp(k Continuation, a *V) bool {
 // Log the natural logarithm
 func (context *Context) Log(k Continuation, a *V) bool {
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X = *bigfloat.Log(&a.X)
 	if k(&c) {
 		return true
@@ -155,13 +173,15 @@ func (context *Context) Log(k Continuation, a *V) bool {
 func (context *Context) Sigmoid(k Continuation, a *V) bool {
   i := bigfloat.Exp(&a.X)
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X.Set(i)
-  c.X.Add(&c.X, big.NewFloat(1))
+  c.X.Add(&c.X, big.NewFloat(1).SetPrec(context.Precision))
   c.X.Quo(i, &c.X)
 	if k(&c) {
 		return true
 	}
-  d := big.NewFloat(1)
+  d := big.NewFloat(1).SetPrec(context.Precision)
   d.Sub(d, &c.X)
   d.Mul(d, &c.X)
   d.Mul(d, &c.D)
@@ -171,21 +191,23 @@ func (context *Context) Sigmoid(k Continuation, a *V) bool {
 
 // TanH the hyperbolic tangent of a number
 func (context *Context) TanH(k Continuation, a *V) bool {
-  aa := big.NewFloat(0)
+  aa := big.NewFloat(0).SetPrec(context.Precision)
   aa.Set(&a.X)
-  aa.Mul(aa, big.NewFloat(-1))
+  aa.Mul(aa, big.NewFloat(-1).SetPrec(context.Precision))
   i, j := bigfloat.Exp(&a.X), bigfloat.Exp(aa)
-  x, y := big.NewFloat(0), big.NewFloat(0)
+  x, y := big.NewFloat(0).SetPrec(context.Precision), big.NewFloat(0).SetPrec(context.Precision)
   x.Sub(i, j)
   y.Add(i, j)
 	c := V{}
+  c.X.SetPrec(context.Precision)
+  c.D.SetPrec(context.Precision)
   c.X.Quo(x, y)
 	if k(&c) {
 		return true
 	}
-  z := big.NewFloat(0)
+  z := big.NewFloat(0).SetPrec(context.Precision)
   z.Mul(&c.X, &c.X)
-  z.Sub(big.NewFloat(1), z)
+  z.Sub(big.NewFloat(1).SetPrec(context.Precision), z)
   z.Mul(z, &c.D)
   a.D.Add(&a.D, z)
 	return false
@@ -220,7 +242,9 @@ func U(op Unary) func(a Meta) Meta {
 
 var (
 	// Static is the static context
-	Static Context
+	Static = Context{
+    Precision: 64,
+  }
 	// Add adds two numbers
 	Add = B(Static.Add)
 	// Sub subtracts two numbers
