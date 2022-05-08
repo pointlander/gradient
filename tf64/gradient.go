@@ -47,12 +47,19 @@ type (
 )
 
 var (
-	abs  = math.Abs
-	sin  = math.Sin
-	cos  = math.Cos
-	exp  = math.Exp
-	log  = math.Log
-	sqrt = math.Sqrt
+	abs           = math.Abs
+	sin           = math.Sin
+	cos           = math.Cos
+	exp           = math.Exp
+	log           = math.Log
+	sqrt          = math.Sqrt
+	floatBits     = math.Float64bits
+	floatFrombits = math.Float64frombits
+)
+
+const (
+	QuantizeMask = (1 << 64) - 1
+	FractionBits = 52
 )
 
 // Next returns the next random number
@@ -244,6 +251,7 @@ func (s *Set) Open(name string) (float64, int, error) {
 
 // Context is a function context
 type Context struct {
+	Quantize uint
 }
 
 // Add adds two tensors
@@ -1101,6 +1109,26 @@ func (context *Context) Abs(k Continuation, a *V) bool {
 		}
 		a.D[i] += cd * sign
 
+	}
+	return false
+}
+
+// Quantize quantizes the values
+func (context *Context) Quant(k Continuation, a *V) bool {
+	if context.Quantize > FractionBits {
+		panic("too much quantization")
+	}
+	c := NewV(a.S...)
+	for _, ax := range a.X {
+		bits := floatBits(ax)
+		bits >>= context.Quantize
+		c.X = append(c.X, floatFrombits(bits))
+	}
+	if k(&c) {
+		return true
+	}
+	for i, cd := range c.D {
+		a.D[i] += cd
 	}
 	return false
 }

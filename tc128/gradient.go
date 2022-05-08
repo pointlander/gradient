@@ -259,6 +259,7 @@ func (s *Set) Open(name string) (complex128, int, error) {
 
 // Context is a function context
 type Context struct {
+	Quantize uint
 }
 
 // Add adds two tensors

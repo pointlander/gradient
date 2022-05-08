@@ -73,6 +73,12 @@ var (
 	exp  = math.Exp
 	log  = math.Log
 	sqrt = math.Sqrt
+	floatBits = math.Float64bits
+	floatFrombits = math.Float64frombits
+)
+const (
+	QuantizeMask = (1 << 64) - 1
+	FractionBits = 52
 )
 {{else if eq .Type "float32"}}
 func abs(a float32) float32 {
@@ -93,6 +99,14 @@ func log(a float32) float32 {
 func sqrt(a float32) float32 {
 	return float32(math.Sqrt(float64(a)))
 }
+var (
+	floatBits = math.Float32bits
+	floatFrombits = math.Float32frombits
+)
+const (
+	QuantizeMask = (1 << 32) - 1
+	FractionBits = 23
+)
 {{else if eq .Type "complex128"}}
 func abs(a complex128) complex128 {
 	return complex(cmplx.Abs(a), 0)
@@ -371,6 +385,7 @@ func (s *Set) Open(name string) ({{.Type}}, int, error) {
 
 // Context is a function context
 type Context struct {
+	Quantize uint
 }
 
 // Add adds two tensors
@@ -1261,6 +1276,28 @@ func (context *Context) Abs(k Continuation, a *V) bool {
 	}
 	return false
 }
+
+{{if or (eq .Type "float64") (eq .Type "float32")}}
+// Quantize quantizes the values
+func (context *Context) Quant(k Continuation, a *V) bool {
+	if context.Quantize > FractionBits {
+		panic("too much quantization")
+	}
+	c := NewV(a.S...)
+	for _, ax := range a.X {
+		bits := floatBits(ax)
+		bits >>= context.Quantize
+		c.X = append(c.X, floatFrombits(bits))
+	}
+	if k(&c) {
+		return true
+	}
+	for i, cd := range c.D {
+		a.D[i] += cd
+	}
+	return false
+}
+{{end}}
 
 // Avg computes the average of the tensor
 func (context *Context) Avg(k Continuation, a *V) bool {

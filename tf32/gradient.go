@@ -65,6 +65,16 @@ func sqrt(a float32) float32 {
 	return float32(math.Sqrt(float64(a)))
 }
 
+var (
+	floatBits     = math.Float32bits
+	floatFrombits = math.Float32frombits
+)
+
+const (
+	QuantizeMask = (1 << 32) - 1
+	FractionBits = 23
+)
+
 // Next returns the next random number
 func (r *RNG) Next() uint32 {
 	lfsr := *r
@@ -254,6 +264,7 @@ func (s *Set) Open(name string) (float32, int, error) {
 
 // Context is a function context
 type Context struct {
+	Quantize uint
 }
 
 // Add adds two tensors
@@ -1111,6 +1122,26 @@ func (context *Context) Abs(k Continuation, a *V) bool {
 		}
 		a.D[i] += cd * sign
 
+	}
+	return false
+}
+
+// Quantize quantizes the values
+func (context *Context) Quant(k Continuation, a *V) bool {
+	if context.Quantize > FractionBits {
+		panic("too much quantization")
+	}
+	c := NewV(a.S...)
+	for _, ax := range a.X {
+		bits := floatBits(ax)
+		bits >>= context.Quantize
+		c.X = append(c.X, floatFrombits(bits))
+	}
+	if k(&c) {
+		return true
+	}
+	for i, cd := range c.D {
+		a.D[i] += cd
 	}
 	return false
 }
