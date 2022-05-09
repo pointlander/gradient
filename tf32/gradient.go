@@ -1133,21 +1133,15 @@ func (context *Context) Quant(k Continuation, a *V) bool {
 	}
 	c := NewV(a.S...)
 	for _, ax := range a.X {
-		if ax <= 0 {
-			c.X = append(c.X, 0)
-		} else {
-			bits := floatBits(ax)
-			bits &= QuantizeMask << context.Quantize
-			c.X = append(c.X, floatFrombits(bits))
-		}
+		bits := floatBits(ax)
+		bits &= QuantizeMask << context.Quantize
+		c.X = append(c.X, floatFrombits(bits))
 	}
 	if k(&c) {
 		return true
 	}
 	for i, cd := range c.D {
-		if c.X[i] != 0 {
-			a.D[i] += cd
-		}
+		a.D[i] += cd
 	}
 	return false
 }
