@@ -1179,6 +1179,7 @@ var (
 	Variance = U(Static.Variance)
 	// Abs computes the absolute value of the tensor
 	Abs = U(Static.Abs)
+
 	// Avg computes the average of the tensor
 	Avg = U(Static.Avg)
 

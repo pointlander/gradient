@@ -1120,15 +1120,21 @@ func (context *Context) Quant(k Continuation, a *V) bool {
 	}
 	c := NewV(a.S...)
 	for _, ax := range a.X {
-		bits := floatBits(ax)
-		bits &= QuantizeMask << context.Quantize
-		c.X = append(c.X, floatFrombits(bits))
+		if ax <= 0 {
+			c.X = append(c.X, 0)
+		} else {
+			bits := floatBits(ax)
+			bits &= QuantizeMask << context.Quantize
+			c.X = append(c.X, floatFrombits(bits))
+		}
 	}
 	if k(&c) {
 		return true
 	}
 	for i, cd := range c.D {
-		a.D[i] += cd
+		if c.X[i] != 0 {
+			a.D[i] += cd
+		}
 	}
 	return false
 }
@@ -1254,6 +1260,10 @@ var (
 	Variance = U(Static.Variance)
 	// Abs computes the absolute value of the tensor
 	Abs = U(Static.Abs)
+
+	// Quantize quantizes the values
+	Quant = U(Static.Quant)
+
 	// Avg computes the average of the tensor
 	Avg = U(Static.Avg)
 )
