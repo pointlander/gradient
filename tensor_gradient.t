@@ -885,6 +885,21 @@ func (context *Context) TanH(k Continuation, a *V) bool {
 	return false
 }
 
+// Softplus the softplus activation function
+func (context *Context) Softplus(k Continuation, a *V) bool {
+	c := NewV(a.S...)
+	for _, j := range a.X {
+		c.X = append(c.X, log(1 + exp(j)))
+	}
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		a.D[i] += j / (1 + exp(-a.X[i]))
+	}
+	return false
+}
+
 {{if or (eq .Type "float64") (eq .Type "float32")}}
 // Everett computes the split reality activation function
 func (context *Context) Everett(k Continuation, a *V) bool {
@@ -1428,6 +1443,8 @@ var (
 	Sigmoid = U(Static.Sigmoid)
 	// TanH the hyperbolic tangent of a tensor
 	TanH = U(Static.TanH)
+	// Softplus the softplus activation function
+	Softplus = U(Static.Softplus)
 {{if or (eq .Type "float64") (eq .Type "float32")}}
 	// Everett computes the split reality activation function
 	Everett = U(Static.Everett)
