@@ -873,6 +873,27 @@ func (context *Context) Sum(k Continuation, a *V) bool {
 	return false
 }
 
+// SumRows sums the rows of the matrix
+func (context *Context) SumRows(k Continuation, a *V) bool {
+	size, width := len(a.X), a.S[0]
+	c := NewV(width)
+	for i := 0; i < size; i += width {
+		for j, ax := range a.X[i : i+width] {
+			c.X[j] += ax
+		}
+	}
+	if k(&c) {
+		return true
+	}
+	for i := 0; i < size; i += width {
+		offset := i * width
+		for j := range a.D[i : i+width] {
+			a.D[offset+j] += c.D[j]
+		}
+	}
+	return false
+}
+
 // Quadratic computes the quadratic cost of two tensors
 func (context *Context) Quadratic(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
@@ -1257,6 +1278,8 @@ var (
 	Softmax = U(Static.Softmax)
 	// Sum sums a vector
 	Sum = U(Static.Sum)
+	// SumRows sums the rows of the matrix
+	SumRows = U(Static.SumRows)
 	// Quadratic computes the quadratic cost of two tensors
 	Quadratic = B(Static.Quadratic)
 	// CrossEntropy computes the cross entropy cost of two tensors
