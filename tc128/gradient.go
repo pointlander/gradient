@@ -545,19 +545,20 @@ func (context *Context) Hadamard(k Continuation, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
-	if a.S[0] != b.S[0] || a.S[1] != b.S[1] {
+	length := len(b.X)
+	if a.S[0] != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
 		panic("dimensions are not the same")
 	}
 	c := NewV(a.S...)
 	for i, j := range a.X {
-		c.X = append(c.X, j*b.X[i])
+		c.X = append(c.X, j*b.X[i%length])
 	}
 	if k(&c) {
 		return true
 	}
 	for i, j := range c.D {
-		a.D[i] += j * b.X[i]
-		b.D[i] += j * a.X[i]
+		a.D[i] += j * b.X[i%length]
+		b.D[i%length] += j * a.X[i]
 	}
 	return false
 }
