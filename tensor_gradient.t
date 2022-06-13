@@ -1038,6 +1038,7 @@ func (context *Context) Sum(k Continuation, a *V) bool {
 func (context *Context) SumRows(k Continuation, a *V) bool {
 	size, width := len(a.X), a.S[0]
 	c := NewV(width)
+	c.X = c.X[:cap(c.X)]
 	for i := 0; i < size; i += width {
 		for j, ax := range a.X[i:i+width] {
 			c.X[j] += ax
