@@ -1048,9 +1048,8 @@ func (context *Context) SumRows(k Continuation, a *V) bool {
 		return true
 	}
 	for i := 0; i < size; i += width {
-		offset := i * width
 		for j := range a.D[i:i+width] {
-			a.D[offset + j] += c.D[j]
+			a.D[i+j] += c.D[j]
 		}
 	}
 	return false
