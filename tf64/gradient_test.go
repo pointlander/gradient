@@ -23,7 +23,7 @@ func TestMul(t *testing.T) {
 			t.Fatal("mul failed", a.X)
 		}
 		return false
-	}, &a, &b)
+	}, 0, &a, &b)
 	e := NewV(2, 2)
 	e.Set([]float64{1, 2, 3, 4})
 	context.Mul(func(a *V) bool {
@@ -31,7 +31,7 @@ func TestMul(t *testing.T) {
 			t.Fatal("mul failed", a.X)
 		}
 		return true
-	}, &a, &e)
+	}, 1, &a, &e)
 }
 
 func TestXORNetwork(t *testing.T) {

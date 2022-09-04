@@ -40,11 +40,11 @@ type (
 	// Meta is a function that takes a continuation and return a continuation
 	Meta func(k Continuation) Continuation
 	// Unary is a unary function
-	Unary func(k Continuation, a *V) bool
+	Unary func(k Continuation, node int, a *V) bool
 	// Binary is a binary function
-	Binary func(k Continuation, a, b *V) bool
+	Binary func(k Continuation, node int, a, b *V) bool
 	// Operation is an operation that takes multiple parameters
-	Operation func(k Continuation, a ...*V) bool
+	Operation func(k Continuation, node int, a ...*V) bool
 )
 
 func abs(a complex128) complex128 {
@@ -260,10 +260,11 @@ func (s *Set) Open(name string) (complex128, int, error) {
 // Context is a function context
 type Context struct {
 	Quantize uint
+	Node     int
 }
 
 // Add adds two tensors
-func (context *Context) Add(k Continuation, a, b *V) bool {
+func (context *Context) Add(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -321,7 +322,7 @@ func (context *Context) Add(k Continuation, a, b *V) bool {
 }
 
 // Sub subtracts two tensors
-func (context *Context) Sub(k Continuation, a, b *V) bool {
+func (context *Context) Sub(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -344,7 +345,7 @@ func (context *Context) Sub(k Continuation, a, b *V) bool {
 }
 
 // Mul multiplies two tensors
-func (context *Context) Mul(k Continuation, a, b *V) bool {
+func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -541,7 +542,7 @@ func (context *Context) Mul(k Continuation, a, b *V) bool {
 }
 
 // Hadamard computes the hadamard product of two tensors
-func (context *Context) Hadamard(k Continuation, a, b *V) bool {
+func (context *Context) Hadamard(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -564,7 +565,7 @@ func (context *Context) Hadamard(k Continuation, a, b *V) bool {
 }
 
 // T the transpose of the matrix
-func (context *Context) T(k Continuation, a *V) bool {
+func (context *Context) T(k Continuation, node int, a *V) bool {
 	c := NewV(a.S[1], a.S[0])
 	for p := 0; p < a.S[0]; p++ {
 		for q := 0; q < a.S[1]; q++ {
@@ -586,7 +587,7 @@ func (context *Context) T(k Continuation, a *V) bool {
 }
 
 // T the transpose of the matrix
-func (context *Context) Slice(k Continuation, a *V, b *V) bool {
+func (context *Context) Slice(k Continuation, node int, a *V, b *V) bool {
 	if b.S[0] != 2 && b.S[1] != 1 {
 		panic("invalid size for slice")
 	}
@@ -616,7 +617,7 @@ func (context *Context) Slice(k Continuation, a *V, b *V) bool {
 }
 
 // Concat concats two tensors
-func (context *Context) Concat(k Continuation, a, b *V) bool {
+func (context *Context) Concat(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -653,7 +654,7 @@ func (context *Context) Concat(k Continuation, a, b *V) bool {
 }
 
 // Sin the sine of a number
-func (context *Context) Sin(k Continuation, a *V) bool {
+func (context *Context) Sin(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, sin(j))
@@ -668,7 +669,7 @@ func (context *Context) Sin(k Continuation, a *V) bool {
 }
 
 // Cos the cosine of a tensor
-func (context *Context) Cos(k Continuation, a *V) bool {
+func (context *Context) Cos(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, cos(j))
@@ -683,7 +684,7 @@ func (context *Context) Cos(k Continuation, a *V) bool {
 }
 
 // Exp the base e exponential of a tensor
-func (context *Context) Exp(k Continuation, a *V) bool {
+func (context *Context) Exp(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, exp(j))
@@ -698,7 +699,7 @@ func (context *Context) Exp(k Continuation, a *V) bool {
 }
 
 // Log the natural logarithm of a tensor
-func (context *Context) Log(k Continuation, a *V) bool {
+func (context *Context) Log(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, log(j))
@@ -713,7 +714,7 @@ func (context *Context) Log(k Continuation, a *V) bool {
 }
 
 // Sigmoid computes the sigmoid of a vector
-func (context *Context) Sigmoid(k Continuation, a *V) bool {
+func (context *Context) Sigmoid(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		e := exp(j)
@@ -730,7 +731,7 @@ func (context *Context) Sigmoid(k Continuation, a *V) bool {
 }
 
 // TanH the hyperbolic tangent of a tensor
-func (context *Context) TanH(k Continuation, a *V) bool {
+func (context *Context) TanH(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		e1, e2 := exp(j), exp(-j)
@@ -747,7 +748,7 @@ func (context *Context) TanH(k Continuation, a *V) bool {
 }
 
 // Softplus the softplus activation function
-func (context *Context) Softplus(k Continuation, a *V) bool {
+func (context *Context) Softplus(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, j := range a.X {
 		c.X = append(c.X, log(1+exp(j)))
@@ -762,7 +763,7 @@ func (context *Context) Softplus(k Continuation, a *V) bool {
 }
 
 // Softmax is the softmax function
-func (context *Context) Softmax(k Continuation, a *V) bool {
+func (context *Context) Softmax(k Continuation, node int, a *V) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
 	for i := 0; i < size; i += width {
 		sum := complex128(0.0)
@@ -786,7 +787,7 @@ func (context *Context) Softmax(k Continuation, a *V) bool {
 }
 
 // Sum sums a vector
-func (context *Context) Sum(k Continuation, a *V) bool {
+func (context *Context) Sum(k Continuation, node int, a *V) bool {
 	c, sum := NewV(1), complex128(0.0)
 	for _, j := range a.X {
 		sum += j
@@ -803,7 +804,7 @@ func (context *Context) Sum(k Continuation, a *V) bool {
 }
 
 // SumRows sums the rows of the matrix
-func (context *Context) SumRows(k Continuation, a *V) bool {
+func (context *Context) SumRows(k Continuation, node int, a *V) bool {
 	size, width := len(a.X), a.S[0]
 	c := NewV(width)
 	c.X = c.X[:cap(c.X)]
@@ -824,7 +825,7 @@ func (context *Context) SumRows(k Continuation, a *V) bool {
 }
 
 // Quadratic computes the quadratic cost of two tensors
-func (context *Context) Quadratic(k Continuation, a, b *V) bool {
+func (context *Context) Quadratic(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -857,7 +858,7 @@ func (context *Context) Quadratic(k Continuation, a, b *V) bool {
 }
 
 // CrossEntropy computes the cross entropy cost of two tensors
-func (context *Context) CrossEntropy(k Continuation, a, b *V) bool {
+func (context *Context) CrossEntropy(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -900,7 +901,7 @@ func (context *Context) CrossEntropy(k Continuation, a, b *V) bool {
 }
 
 // Similarity computes the cosine similarity cost of two tensors
-func (context *Context) Similarity(k Continuation, a, b *V) bool {
+func (context *Context) Similarity(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -942,7 +943,7 @@ func (context *Context) Similarity(k Continuation, a, b *V) bool {
 }
 
 // Orthogonality computes the cosine similarity between all vectros
-func (context *Context) Orthogonality(k Continuation, a *V) bool {
+func (context *Context) Orthogonality(k Continuation, node int, a *V) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -982,7 +983,7 @@ func (context *Context) Orthogonality(k Continuation, a *V) bool {
 }
 
 // Entropy computes the entropy of the vectors
-func (context *Context) Entropy(k Continuation, a *V) bool {
+func (context *Context) Entropy(k Continuation, node int, a *V) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1011,7 +1012,7 @@ func (context *Context) Entropy(k Continuation, a *V) bool {
 }
 
 // Variance computes the variance of the vectors
-func (context *Context) Variance(k Continuation, a *V) bool {
+func (context *Context) Variance(k Continuation, node int, a *V) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1058,7 +1059,7 @@ func (context *Context) Variance(k Continuation, a *V) bool {
 }
 
 // Abs computes the absolute value of the tensor
-func (context *Context) Abs(k Continuation, a *V) bool {
+func (context *Context) Abs(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
 	for _, ax := range a.X {
 		c.X = append(c.X, abs(ax))
@@ -1075,7 +1076,7 @@ func (context *Context) Abs(k Continuation, a *V) bool {
 }
 
 // Avg computes the average of the tensor
-func (context *Context) Avg(k Continuation, a *V) bool {
+func (context *Context) Avg(k Continuation, node int, a *V) bool {
 	c, sum := NewV(1), complex128(0.0)
 	for _, j := range a.X {
 		sum += j
@@ -1095,7 +1096,7 @@ func (context *Context) Avg(k Continuation, a *V) bool {
 }
 
 // Combines two complex tensors to a complex tensor
-func (context *Context) Complex(k Continuation, a, b *V) bool {
+func (context *Context) Complex(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1120,13 +1121,15 @@ func (context *Context) Complex(k Continuation, a, b *V) bool {
 }
 
 // Op is a operation
-func Op(op Operation) func(a ...Meta) Meta {
+func (context *Context) Op(op Operation) func(a ...Meta) Meta {
 	return func(a ...Meta) Meta {
+		node := context.Node
+		context.Node++
 		return func(k Continuation) Continuation {
 			var call func(a []Meta, b []*V) (bool, Continuation)
 			call = func(a []Meta, b []*V) (bool, Continuation) {
 				if len(a) == 0 {
-					return op(k, b...), nil
+					return op(k, node, b...), nil
 				}
 				derivatives := false
 				continuation := a[0](func(c *V) bool {
@@ -1142,13 +1145,15 @@ func Op(op Operation) func(a ...Meta) Meta {
 }
 
 // B converts a binary function into an operator
-func B(op Binary) func(a, b Meta) Meta {
+func (context *Context) B(op Binary) func(a, b Meta) Meta {
 	return func(a, b Meta) Meta {
+		node := context.Node
+		context.Node++
 		return func(k Continuation) Continuation {
 			return a(func(a *V) bool {
 				derivatives := false
 				b(func(b *V) bool {
-					derivatives = op(k, a, b)
+					derivatives = op(k, node, a, b)
 					return derivatives
 				})
 				return derivatives
@@ -1158,11 +1163,13 @@ func B(op Binary) func(a, b Meta) Meta {
 }
 
 // U converts a unary function into an operator
-func U(op Unary) func(a Meta) Meta {
+func (context *Context) U(op Unary) func(a Meta) Meta {
 	return func(a Meta) Meta {
+		node := context.Node
+		context.Node++
 		return func(k Continuation) Continuation {
 			return a(func(b *V) bool {
-				return op(k, b)
+				return op(k, node, b)
 			})
 		}
 	}
@@ -1172,60 +1179,60 @@ var (
 	// Static is the static context
 	Static Context
 	// Add adds two tensors
-	Add = B(Static.Add)
+	Add = Static.B(Static.Add)
 	// Sub subtracts two tensors
-	Sub = B(Static.Sub)
+	Sub = Static.B(Static.Sub)
 	// Mul multiplies two tensors
-	Mul = B(Static.Mul)
+	Mul = Static.B(Static.Mul)
 	// Hadamard computes the hadamard product of two tensors
-	Hadamard = B(Static.Hadamard)
+	Hadamard = Static.B(Static.Hadamard)
 	// T the transpose of the matrix
-	T = U(Static.T)
+	T = Static.U(Static.T)
 	// Slice slices the matrix
-	Slice = B(Static.Slice)
+	Slice = Static.B(Static.Slice)
 	// Concat concats two tensors
-	Concat = B(Static.Concat)
+	Concat = Static.B(Static.Concat)
 	// Sin the sin of a tensors
-	Sin = U(Static.Sin)
+	Sin = Static.U(Static.Sin)
 	// Cos the cosine of a tensor
-	Cos = U(Static.Cos)
+	Cos = Static.U(Static.Cos)
 	// Exp the base e exponential of a tensor
-	Exp = U(Static.Exp)
+	Exp = Static.U(Static.Exp)
 	// Log the natural logarithm of a tensor
-	Log = U(Static.Log)
+	Log = Static.U(Static.Log)
 	// Sigmoid the sigmoid of a tensors
-	Sigmoid = U(Static.Sigmoid)
+	Sigmoid = Static.U(Static.Sigmoid)
 	// TanH the hyperbolic tangent of a tensor
-	TanH = U(Static.TanH)
+	TanH = Static.U(Static.TanH)
 	// Softplus the softplus activation function
-	Softplus = U(Static.Softplus)
+	Softplus = Static.U(Static.Softplus)
 
 	// Softmax is the softmax function
-	Softmax = U(Static.Softmax)
+	Softmax = Static.U(Static.Softmax)
 	// Sum sums a vector
-	Sum = U(Static.Sum)
+	Sum = Static.U(Static.Sum)
 	// SumRows sums the rows of the matrix
-	SumRows = U(Static.SumRows)
+	SumRows = Static.U(Static.SumRows)
 	// Quadratic computes the quadratic cost of two tensors
-	Quadratic = B(Static.Quadratic)
+	Quadratic = Static.B(Static.Quadratic)
 	// CrossEntropy computes the cross entropy cost of two tensors
-	CrossEntropy = B(Static.CrossEntropy)
+	CrossEntropy = Static.B(Static.CrossEntropy)
 	// Similarity computes the cosine similarity cost of two tensors
-	Similarity = B(Static.Similarity)
+	Similarity = Static.B(Static.Similarity)
 	// Orthogonality computes the cosine similarity between all vectros
-	Orthogonality = U(Static.Orthogonality)
+	Orthogonality = Static.U(Static.Orthogonality)
 	// Entropy computes the entropy of the vectors
-	Entropy = U(Static.Entropy)
+	Entropy = Static.U(Static.Entropy)
 	// Variance computes the variance of the vectors
-	Variance = U(Static.Variance)
+	Variance = Static.U(Static.Variance)
 	// Abs computes the absolute value of the tensor
-	Abs = U(Static.Abs)
+	Abs = Static.U(Static.Abs)
 
 	// Avg computes the average of the tensor
-	Avg = U(Static.Avg)
+	Avg = Static.U(Static.Avg)
 
 	// Combines two complex tensors to a complex tensor
-	Complex = B(Static.Complex)
+	Complex = Static.B(Static.Complex)
 )
 
 // Gradient computes the gradient
