@@ -274,6 +274,21 @@ func (c *Context) Clear() {
 	c.Cache = make(map[int][]float32)
 }
 
+// Get gets a value from the cache
+func (c *Context) Get(node int) []float32 {
+	if c.Cache != nil {
+		return c.Cache[node]
+	}
+	return nil
+}
+
+// Set sets a value in the cache
+func (c *Context) Set(node int, value []float32) {
+	if c.Cache != nil {
+		c.Cache[node] = value
+	}
+}
+
 // Add adds two tensors
 func (context *Context) Add(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
@@ -284,21 +299,28 @@ func (context *Context) Add(k Continuation, node int, a, b *V) bool {
 		panic("dimensions are not the same")
 	}
 	c := NewV(a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
 	if a.Seed != 0 {
 		dropout, index := uint32((1-a.Drop)*math.MaxUint32), 0
 		c.Seed, c.Drop = a.Seed, a.Drop
-		for i := 0; i < a.S[1]; i++ {
-			rng := a.Seed
-			for j := 0; j < a.S[0]; j++ {
-				if rng.Next() > dropout {
-					c.X = append(c.X, 0)
+		if cached == nil {
+			for i := 0; i < a.S[1]; i++ {
+				rng := a.Seed
+				for j := 0; j < a.S[0]; j++ {
+					if rng.Next() > dropout {
+						c.X = append(c.X, 0)
+						index++
+						continue
+					}
+					c.X = append(c.X, a.X[index]+b.X[index%length])
 					index++
-					continue
 				}
-				c.X = append(c.X, a.X[index]+b.X[index%length])
-				index++
 			}
 		}
+		context.Set(node, c.X)
 		if k(&c) {
 			return true
 		}
@@ -319,9 +341,12 @@ func (context *Context) Add(k Continuation, node int, a, b *V) bool {
 		return false
 	}
 
-	for i, j := range a.X {
-		c.X = append(c.X, j+b.X[i%length])
+	if cached == nil {
+		for i, j := range a.X {
+			c.X = append(c.X, j+b.X[i%length])
+		}
 	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -342,9 +367,16 @@ func (context *Context) Sub(k Continuation, node int, a, b *V) bool {
 		panic("dimensions are not the same")
 	}
 	c := NewV(a.S...)
-	for i, j := range a.X {
-		c.X = append(c.X, j-b.X[i%length])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for i, j := range a.X {
+			c.X = append(c.X, j-b.X[i%length])
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -367,18 +399,14 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 	sizeA, sizeB, c, done :=
 		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
 	c.X = c.X[:cap(c.X)]
-	var cached []float32
-	var ok bool
-	if context.Cache != nil {
-		cached, ok = context.Cache[node]
-	}
-	if ok {
+	cached := context.Get(node)
+	if cached != nil {
 		c.X = cached
 	}
 	if a.Seed != 0 {
 		c.Seed, c.Drop = a.Seed, a.Drop
 		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-		if !ok {
+		if cached == nil {
 			mul := func(bv []float32, i int) {
 				rng := a.Seed
 				for j := 0; j < sizeA; j += width {
@@ -404,9 +432,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 				<-done
 			}
 		}
-		if context.Cache != nil {
-			context.Cache[node] = c.X
-		}
+		context.Set(node, c.X)
 		if k(&c) {
 			return true
 		}
@@ -478,7 +504,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 		return false
 	}
 
-	if !ok {
+	if cached == nil {
 		mul := func(bv []float32, i int) {
 			for j := 0; j < sizeA; j += width {
 				av, sum := a.X[j:j+width], float32(0.0)
@@ -499,9 +525,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 			<-done
 		}
 	}
-	if context.Cache != nil {
-		context.Cache[node] = c.X
-	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -570,9 +594,16 @@ func (context *Context) Hadamard(k Continuation, node int, a, b *V) bool {
 		panic("dimensions are not the same")
 	}
 	c := NewV(a.S...)
-	for i, j := range a.X {
-		c.X = append(c.X, j*b.X[i%length])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for i, j := range a.X {
+			c.X = append(c.X, j*b.X[i%length])
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -586,12 +617,18 @@ func (context *Context) Hadamard(k Continuation, node int, a, b *V) bool {
 // T the transpose of the matrix
 func (context *Context) T(k Continuation, node int, a *V) bool {
 	c := NewV(a.S[1], a.S[0])
-	for p := 0; p < a.S[0]; p++ {
-		for q := 0; q < a.S[1]; q++ {
-			c.X = append(c.X, a.X[q*a.S[0]+p])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for p := 0; p < a.S[0]; p++ {
+			for q := 0; q < a.S[1]; q++ {
+				c.X = append(c.X, a.X[q*a.S[0]+p])
+			}
 		}
 	}
-
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -615,12 +652,19 @@ func (context *Context) Slice(k Continuation, node int, a *V, b *V) bool {
 	begin, end := int(b.X[0]), int(b.X[1])
 
 	c, size := NewV(end-begin, a.S[1]), len(a.X)
-	for i := 0; i < size; i += width {
-		av := a.X[i+begin : i+end]
-		for _, ax := range av {
-			c.X = append(c.X, ax)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for i := 0; i < size; i += width {
+			av := a.X[i+begin : i+end]
+			for _, ax := range av {
+				c.X = append(c.X, ax)
+			}
 		}
 	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -645,13 +689,20 @@ func (context *Context) Concat(k Continuation, node int, a, b *V) bool {
 	}
 	widthA, widthB := a.S[0], b.S[0]
 	c, i, j := NewV(widthA+widthB, a.S[1]), 0, 0
-	for r := 0; r < a.S[1]; r++ {
-		av, bv := a.X[i:i+widthA], b.X[j:j+widthB]
-		c.X = append(c.X, av...)
-		c.X = append(c.X, bv...)
-		i += widthA
-		j += widthB
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for r := 0; r < a.S[1]; r++ {
+			av, bv := a.X[i:i+widthA], b.X[j:j+widthB]
+			c.X = append(c.X, av...)
+			c.X = append(c.X, bv...)
+			i += widthA
+			j += widthB
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -675,9 +726,16 @@ func (context *Context) Concat(k Continuation, node int, a, b *V) bool {
 // Sin the sine of a number
 func (context *Context) Sin(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, j := range a.X {
-		c.X = append(c.X, sin(j))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			c.X = append(c.X, sin(j))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -690,9 +748,16 @@ func (context *Context) Sin(k Continuation, node int, a *V) bool {
 // Cos the cosine of a tensor
 func (context *Context) Cos(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, j := range a.X {
-		c.X = append(c.X, cos(j))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			c.X = append(c.X, cos(j))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -705,9 +770,16 @@ func (context *Context) Cos(k Continuation, node int, a *V) bool {
 // Exp the base e exponential of a tensor
 func (context *Context) Exp(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, j := range a.X {
-		c.X = append(c.X, exp(j))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			c.X = append(c.X, exp(j))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -720,9 +792,16 @@ func (context *Context) Exp(k Continuation, node int, a *V) bool {
 // Log the natural logarithm of a tensor
 func (context *Context) Log(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, j := range a.X {
-		c.X = append(c.X, log(j))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			c.X = append(c.X, log(j))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -735,10 +814,17 @@ func (context *Context) Log(k Continuation, node int, a *V) bool {
 // Sigmoid computes the sigmoid of a vector
 func (context *Context) Sigmoid(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, j := range a.X {
-		e := exp(j)
-		c.X = append(c.X, e/(e+1))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			e := exp(j)
+			c.X = append(c.X, e/(e+1))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -752,10 +838,17 @@ func (context *Context) Sigmoid(k Continuation, node int, a *V) bool {
 // TanH the hyperbolic tangent of a tensor
 func (context *Context) TanH(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, j := range a.X {
-		e1, e2 := exp(j), exp(-j)
-		c.X = append(c.X, (e1-e2)/(e1+e2))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			e1, e2 := exp(j), exp(-j)
+			c.X = append(c.X, (e1-e2)/(e1+e2))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -769,9 +862,16 @@ func (context *Context) TanH(k Continuation, node int, a *V) bool {
 // Softplus the softplus activation function
 func (context *Context) Softplus(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, j := range a.X {
-		c.X = append(c.X, log(1+exp(j)))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			c.X = append(c.X, log(1+exp(j)))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -784,29 +884,36 @@ func (context *Context) Softplus(k Continuation, node int, a *V) bool {
 // Everett computes the split reality activation function
 func (context *Context) Everett(k Continuation, node int, a *V) bool {
 	c := NewV(2*a.S[0], a.S[1])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
 	if a.Seed != 0 {
 		c.Seed, c.Drop = a.Seed, a.Drop
 		index, dropout, factor := 0, uint32((1-a.Drop)*math.MaxUint32), float32(1/(1-a.Drop))
-		for i := 0; i < a.S[1]; i++ {
-			rng := a.Seed
-			for j := 0; j < a.S[0]; j++ {
-				if rng.Next() > dropout {
-					c.X = append(c.X, 0, 0)
+		if cached == nil {
+			for i := 0; i < a.S[1]; i++ {
+				rng := a.Seed
+				for j := 0; j < a.S[0]; j++ {
+					if rng.Next() > dropout {
+						c.X = append(c.X, 0, 0)
+						index++
+						continue
+					}
+					ax := a.X[index]
+					min, max := ax, ax
+					if min > 0 {
+						min = 0
+					}
+					if max < 0 {
+						max = 0
+					}
+					c.X = append(c.X, min*factor, max*factor)
 					index++
-					continue
 				}
-				ax := a.X[index]
-				min, max := ax, ax
-				if min > 0 {
-					min = 0
-				}
-				if max < 0 {
-					max = 0
-				}
-				c.X = append(c.X, min*factor, max*factor)
-				index++
 			}
 		}
+		context.Set(node, c.X)
 		if k(&c) {
 			return true
 		}
@@ -830,16 +937,19 @@ func (context *Context) Everett(k Continuation, node int, a *V) bool {
 		return false
 	}
 
-	for _, j := range a.X {
-		min, max := j, j
-		if min > 0 {
-			min = 0
+	if cached == nil {
+		for _, j := range a.X {
+			min, max := j, j
+			if min > 0 {
+				min = 0
+			}
+			if max < 0 {
+				max = 0
+			}
+			c.X = append(c.X, min, max)
 		}
-		if max < 0 {
-			max = 0
-		}
-		c.X = append(c.X, min, max)
 	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -853,13 +963,20 @@ func (context *Context) Everett(k Continuation, node int, a *V) bool {
 
 func (context *Context) EverettReLu(k Continuation, node int, a *V) bool {
 	c := NewV(2*a.S[0], a.S[1])
-	for _, j := range a.X {
-		max := j
-		if max < 0 {
-			max = 0
-		}
-		c.X = append(c.X, 0, max)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, j := range a.X {
+			max := j
+			if max < 0 {
+				max = 0
+			}
+			c.X = append(c.X, 0, max)
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -874,17 +991,24 @@ func (context *Context) EverettReLu(k Continuation, node int, a *V) bool {
 // Softmax is the softmax function
 func (context *Context) Softmax(k Continuation, node int, a *V) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
-	for i := 0; i < size; i += width {
-		sum := float32(0.0)
-		for _, ax := range a.X[i : i+width] {
-			e := exp(ax)
-			sum += e
-			c.X = append(c.X, e)
-		}
-		for j, cx := range c.X[i : i+width] {
-			c.X[i+j] = cx / sum
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for i := 0; i < size; i += width {
+			sum := float32(0.0)
+			for _, ax := range a.X[i : i+width] {
+				e := exp(ax)
+				sum += e
+				c.X = append(c.X, e)
+			}
+			for j, cx := range c.X[i : i+width] {
+				c.X[i+j] = cx / sum
+			}
 		}
 	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -898,10 +1022,17 @@ func (context *Context) Softmax(k Continuation, node int, a *V) bool {
 // Sum sums a vector
 func (context *Context) Sum(k Continuation, node int, a *V) bool {
 	c, sum := NewV(1), float32(0.0)
-	for _, j := range a.X {
-		sum += j
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
-	c.X = append(c.X, sum)
+	if cached == nil {
+		for _, j := range a.X {
+			sum += j
+		}
+		c.X = append(c.X, sum)
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -916,12 +1047,19 @@ func (context *Context) Sum(k Continuation, node int, a *V) bool {
 func (context *Context) SumRows(k Continuation, node int, a *V) bool {
 	size, width := len(a.X), a.S[0]
 	c := NewV(width)
-	c.X = c.X[:cap(c.X)]
-	for i := 0; i < size; i += width {
-		for j, ax := range a.X[i : i+width] {
-			c.X[j] += ax
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c.X = c.X[:cap(c.X)]
+		for i := 0; i < size; i += width {
+			for j, ax := range a.X[i : i+width] {
+				c.X[j] += ax
+			}
 		}
 	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -943,14 +1081,21 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V) bool {
 		panic("dimensions are not the same")
 	}
 	c, size := NewV(a.S[1]), len(a.X)
-	for i := 0; i < size; i += width {
-		av, bv, sum := a.X[i:i+width], b.X[i:i+width], float32(0.0)
-		for j, ax := range av {
-			p := (ax - bv[j])
-			sum += p * p
-		}
-		c.X = append(c.X, .5*sum)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for i := 0; i < size; i += width {
+			av, bv, sum := a.X[i:i+width], b.X[i:i+width], float32(0.0)
+			for j, ax := range av {
+				p := (ax - bv[j])
+				sum += p * p
+			}
+			c.X = append(c.X, .5*sum)
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -976,18 +1121,25 @@ func (context *Context) CrossEntropy(k Continuation, node int, a, b *V) bool {
 		panic("dimensions are not the same")
 	}
 	c, size := NewV(a.S[1]), len(a.X)
-	for i := 0; i < size; i += width {
-		av, bv, sum := a.X[i:i+width], b.X[i:i+width], float32(0.0)
-		for j, ax := range av {
-			bx := bv[j]
-			if bx == 1 {
-				sum += log(ax + .001)
-			} else {
-				sum += log(1 - ax + .001)
-			}
-		}
-		c.X = append(c.X, -sum)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for i := 0; i < size; i += width {
+			av, bv, sum := a.X[i:i+width], b.X[i:i+width], float32(0.0)
+			for j, ax := range av {
+				bx := bv[j]
+				if bx == 1 {
+					sum += log(ax + .001)
+				} else {
+					sum += log(1 - ax + .001)
+				}
+			}
+			c.X = append(c.X, -sum)
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -1097,14 +1249,21 @@ func (context *Context) Entropy(k Continuation, node int, a *V) bool {
 		panic("tensor needs to have two dimensions")
 	}
 	c, size, width := NewV(a.S[1]), len(a.X), a.S[0]
-	for i := 0; i < size; i += width {
-		sum := float32(0.0)
-		for k := 0; k < width; k++ {
-			ax := a.X[i+k]
-			sum += ax * log(ax)
-		}
-		c.X = append(c.X, -sum)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for i := 0; i < size; i += width {
+			sum := float32(0.0)
+			for k := 0; k < width; k++ {
+				ax := a.X[i+k]
+				sum += ax * log(ax)
+			}
+			c.X = append(c.X, -sum)
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -1170,9 +1329,16 @@ func (context *Context) Variance(k Continuation, node int, a *V) bool {
 // Abs computes the absolute value of the tensor
 func (context *Context) Abs(k Continuation, node int, a *V) bool {
 	c := NewV(a.S...)
-	for _, ax := range a.X {
-		c.X = append(c.X, abs(ax))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, ax := range a.X {
+			c.X = append(c.X, abs(ax))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -1194,11 +1360,18 @@ func (context *Context) Quant(k Continuation, node int, a *V) bool {
 		panic("too much quantization")
 	}
 	c := NewV(a.S...)
-	for _, ax := range a.X {
-		bits := floatBits(ax)
-		bits &= QuantizeMask << context.Quantize
-		c.X = append(c.X, floatFrombits(bits))
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
 	}
+	if cached == nil {
+		for _, ax := range a.X {
+			bits := floatBits(ax)
+			bits &= QuantizeMask << context.Quantize
+			c.X = append(c.X, floatFrombits(bits))
+		}
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
@@ -1211,13 +1384,20 @@ func (context *Context) Quant(k Continuation, node int, a *V) bool {
 // Avg computes the average of the tensor
 func (context *Context) Avg(k Continuation, node int, a *V) bool {
 	c, sum := NewV(1), float32(0.0)
-	for _, j := range a.X {
-		sum += j
-	}
 
 	total := float32(len(a.X))
 
-	c.X = append(c.X, sum/total)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for _, j := range a.X {
+			sum += j
+		}
+		c.X = append(c.X, sum/total)
+	}
+	context.Set(node, c.X)
 	if k(&c) {
 		return true
 	}
