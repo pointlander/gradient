@@ -18,7 +18,7 @@ func TestMul(t *testing.T) {
 	b := NewV(2)
 	b.Set([]float64{1, 2})
 	var context Context
-	context.Cache = make(map[int][]float64)
+	context.Clear()
 	context.Mul(func(a *V) bool {
 		if a.X[0] != 5 || a.X[1] != 11 {
 			t.Fatal("mul failed", a.X)
@@ -102,7 +102,7 @@ func TestXORNetwork(t *testing.T) {
 			}
 			input.Set(data[j][:2])
 			output.Set(data[j][2:])
-			Static.Cache = make(map[int][]float64)
+			Static.Clear()
 			total += Gradient(cost).X[0]
 			for k, p := range parameters {
 				for l, d := range p.D {
@@ -135,7 +135,7 @@ func TestXORNetwork(t *testing.T) {
 	for i := range data {
 		input.X[0], input.X[1] = data[i][0], data[i][1]
 		var output V
-		Static.Cache = make(map[int][]float64)
+		Static.Clear()
 		l2(func(a *V) bool {
 			output = *a
 			return true

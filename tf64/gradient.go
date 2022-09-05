@@ -256,6 +256,11 @@ type Context struct {
 	Cache    map[int][]float64
 }
 
+// Clear clears the cache
+func (c *Context) Clear() {
+	c.Cache = make(map[int][]float64)
+}
+
 // Add adds two tensors
 func (context *Context) Add(k Continuation, node int, a, b *V) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
