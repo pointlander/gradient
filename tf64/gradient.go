@@ -354,7 +354,11 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 	sizeA, sizeB, c, done :=
 		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
 	c.X = c.X[:cap(c.X)]
-	cached, ok := context.Cache[node]
+	var cached []float64
+	var ok bool
+	if context.Cache != nil {
+		cached, ok = context.Cache[node]
+	}
 	if ok {
 		c.X = cached
 	}
@@ -387,7 +391,9 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 				<-done
 			}
 		}
-		context.Cache[node] = c.X
+		if context.Cache != nil {
+			context.Cache[node] = c.X
+		}
 		if k(&c) {
 			return true
 		}
@@ -480,7 +486,9 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 			<-done
 		}
 	}
-	context.Cache[node] = c.X
+	if context.Cache != nil {
+		context.Cache[node] = c.X
+	}
 	if k(&c) {
 		return true
 	}
