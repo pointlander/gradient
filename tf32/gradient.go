@@ -266,6 +266,7 @@ func (s *Set) Open(name string) (float32, int, error) {
 type Context struct {
 	Quantize uint
 	Node     int
+	Cache    map[int][]float32
 }
 
 // Add adds two tensors
@@ -361,33 +362,40 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 	sizeA, sizeB, c, done :=
 		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
 	c.X = c.X[:cap(c.X)]
+	cached, ok := context.Cache[node]
+	if ok {
+		c.X = cached
+	}
 	if a.Seed != 0 {
 		c.Seed, c.Drop = a.Seed, a.Drop
 		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-		mul := func(bv []float32, i int) {
-			rng := a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
+		if !ok {
+			mul := func(bv []float32, i int) {
+				rng := a.Seed
+				for j := 0; j < sizeA; j += width {
+					if rng.Next() > dropout {
+						i++
+						continue
+					}
+
+					av := a.X[j : j+width]
+					sum := dot(av, bv)
+
+					c.X[i] = sum
 					i++
-					continue
 				}
-
-				av := a.X[j : j+width]
-				sum := dot(av, bv)
-
-				c.X[i] = sum
-				i++
+				done <- true
 			}
-			done <- true
+			index, step := 0, sizeA/width
+			for i := 0; i < sizeB; i += width {
+				go mul(b.X[i:i+width], index)
+				index += step
+			}
+			for i := 0; i < sizeB; i += width {
+				<-done
+			}
 		}
-		index, step := 0, sizeA/width
-		for i := 0; i < sizeB; i += width {
-			go mul(b.X[i:i+width], index)
-			index += step
-		}
-		for i := 0; i < sizeB; i += width {
-			<-done
-		}
+		context.Cache[node] = c.X
 		if k(&c) {
 			return true
 		}
@@ -459,25 +467,28 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 		return false
 	}
 
-	mul := func(bv []float32, i int) {
-		for j := 0; j < sizeA; j += width {
-			av, sum := a.X[j:j+width], float32(0.0)
-			for k, bx := range bv {
-				sum += av[k] * bx
+	if !ok {
+		mul := func(bv []float32, i int) {
+			for j := 0; j < sizeA; j += width {
+				av, sum := a.X[j:j+width], float32(0.0)
+				for k, bx := range bv {
+					sum += av[k] * bx
+				}
+				c.X[i] = sum
+				i++
 			}
-			c.X[i] = sum
-			i++
+			done <- true
 		}
-		done <- true
+		index, step := 0, sizeA/width
+		for i := 0; i < sizeB; i += width {
+			go mul(b.X[i:i+width], index)
+			index += step
+		}
+		for i := 0; i < sizeB; i += width {
+			<-done
+		}
 	}
-	index, step := 0, sizeA/width
-	for i := 0; i < sizeB; i += width {
-		go mul(b.X[i:i+width], index)
-		index += step
-	}
-	for i := 0; i < sizeB; i += width {
-		<-done
-	}
+	context.Cache[node] = c.X
 	if k(&c) {
 		return true
 	}
@@ -1262,65 +1273,71 @@ func (context *Context) U(op Unary) func(a Meta) Meta {
 var (
 	// Static is the static context
 	Static Context
+	// Op is a operation
+	Op = Static.Op
+	// B converts a binary function into an operator
+	B = Static.B
+	// U converts a unary function into an operator
+	U = Static.U
 	// Add adds two tensors
-	Add = Static.B(Static.Add)
+	Add = B(Static.Add)
 	// Sub subtracts two tensors
-	Sub = Static.B(Static.Sub)
+	Sub = B(Static.Sub)
 	// Mul multiplies two tensors
-	Mul = Static.B(Static.Mul)
+	Mul = B(Static.Mul)
 	// Hadamard computes the hadamard product of two tensors
-	Hadamard = Static.B(Static.Hadamard)
+	Hadamard = B(Static.Hadamard)
 	// T the transpose of the matrix
-	T = Static.U(Static.T)
+	T = U(Static.T)
 	// Slice slices the matrix
-	Slice = Static.B(Static.Slice)
+	Slice = B(Static.Slice)
 	// Concat concats two tensors
-	Concat = Static.B(Static.Concat)
+	Concat = B(Static.Concat)
 	// Sin the sin of a tensors
-	Sin = Static.U(Static.Sin)
+	Sin = U(Static.Sin)
 	// Cos the cosine of a tensor
-	Cos = Static.U(Static.Cos)
+	Cos = U(Static.Cos)
 	// Exp the base e exponential of a tensor
-	Exp = Static.U(Static.Exp)
+	Exp = U(Static.Exp)
 	// Log the natural logarithm of a tensor
-	Log = Static.U(Static.Log)
+	Log = U(Static.Log)
 	// Sigmoid the sigmoid of a tensors
-	Sigmoid = Static.U(Static.Sigmoid)
+	Sigmoid = U(Static.Sigmoid)
 	// TanH the hyperbolic tangent of a tensor
-	TanH = Static.U(Static.TanH)
+	TanH = U(Static.TanH)
 	// Softplus the softplus activation function
-	Softplus = Static.U(Static.Softplus)
+	Softplus = U(Static.Softplus)
 
 	// Everett computes the split reality activation function
-	Everett     = Static.U(Static.Everett)
-	EverettReLu = Static.U(Static.EverettReLu)
+	Everett     = U(Static.Everett)
+	EverettReLu = U(Static.EverettReLu)
 
 	// Softmax is the softmax function
-	Softmax = Static.U(Static.Softmax)
+	Softmax = U(Static.Softmax)
 	// Sum sums a vector
-	Sum = Static.U(Static.Sum)
+	Sum = U(Static.Sum)
 	// SumRows sums the rows of the matrix
-	SumRows = Static.U(Static.SumRows)
+	SumRows = U(Static.SumRows)
 	// Quadratic computes the quadratic cost of two tensors
-	Quadratic = Static.B(Static.Quadratic)
+	Quadratic = B(Static.Quadratic)
 	// CrossEntropy computes the cross entropy cost of two tensors
-	CrossEntropy = Static.B(Static.CrossEntropy)
+	CrossEntropy = B(Static.CrossEntropy)
 	// Similarity computes the cosine similarity cost of two tensors
-	Similarity = Static.B(Static.Similarity)
+	Similarity = B(Static.Similarity)
 	// Orthogonality computes the cosine similarity between all vectros
-	Orthogonality = Static.U(Static.Orthogonality)
+	Orthogonality = U(Static.Orthogonality)
 	// Entropy computes the entropy of the vectors
-	Entropy = Static.U(Static.Entropy)
+	Entropy = U(Static.Entropy)
 	// Variance computes the variance of the vectors
-	Variance = Static.U(Static.Variance)
+	Variance = U(Static.Variance)
 	// Abs computes the absolute value of the tensor
-	Abs = Static.U(Static.Abs)
+	Abs = U(Static.Abs)
 
 	// Quantize quantizes the values
-	Quant = Static.U(Static.Quant)
+	Quant = U(Static.Quant)
 
 	// Avg computes the average of the tensor
-	Avg = Static.U(Static.Avg)
+	Avg = U(Static.Avg)
 )
 
 // Gradient computes the gradient
