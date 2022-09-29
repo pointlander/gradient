@@ -23,12 +23,13 @@ type (
 	RNG uint32
 	// V is a tensor value
 	V struct {
-		N    string // the name
-		Seed RNG
-		Drop float64
-		X    []complex128 // the tensor
-		D    []complex128 // the derivative
-		S    []int        // the shape
+		N      string // the name
+		Seed   RNG
+		Drop   float64
+		X      []complex128 // the tensor
+		D      []complex128 // the derivative
+		S      []int        // the shape
+		States [][]complex128
 	}
 	// Set is a set of V
 	Set struct {
@@ -206,6 +207,12 @@ func (s *Set) Save(file string, cost complex128, epoch int) error {
 			Shape:  shape,
 			Values: values,
 		}
+		for _, state := range w.States {
+			for _, x := range state {
+				weights.States = append(weights.States, real(x))
+				weights.States = append(weights.States, imag(x))
+			}
+		}
 		set.Weights = append(set.Weights, &weights)
 	}
 	out, err := proto.Marshal(&set)
@@ -250,6 +257,14 @@ func (s *Set) Open(name string) (complex128, int, error) {
 			X: x,
 			D: make([]complex128, len(w.Values)),
 			S: shape,
+		}
+		width := len(v.X)
+		for j := 0; j < len(w.States); j += width {
+			x := make([]complex128, width)
+			for i := 0; i < width; i += 2 {
+				x[i>>1] = complex(w.States[j+i], w.States[j+i+1])
+			}
+			v.States = append(v.States, x)
 		}
 		s.Weights = append(s.Weights, &v)
 		s.ByName[v.N] = &v

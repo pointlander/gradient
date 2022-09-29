@@ -22,12 +22,13 @@ type (
 	RNG uint32
 	// V is a tensor value
 	V struct {
-		N    string // the name
-		Seed RNG
-		Drop float64
-		X    []float32 // the tensor
-		D    []float32 // the derivative
-		S    []int     // the shape
+		N      string // the name
+		Seed   RNG
+		Drop   float64
+		X      []float32 // the tensor
+		D      []float32 // the derivative
+		S      []int     // the shape
+		States [][]float32
 	}
 	// Set is a set of V
 	Set struct {
@@ -215,6 +216,9 @@ func (s *Set) Save(file string, cost float32, epoch int) error {
 			Shape:  shape,
 			Values: w.X,
 		}
+		for _, state := range w.States {
+			weights.States = append(weights.States, state...)
+		}
 		set.Weights = append(set.Weights, &weights)
 	}
 	out, err := proto.Marshal(&set)
@@ -255,6 +259,10 @@ func (s *Set) Open(name string) (float32, int, error) {
 			X: w.Values,
 			D: make([]float32, len(w.Values)),
 			S: shape,
+		}
+		width := len(v.X)
+		for j := 0; j < len(w.States); j += width {
+			v.States = append(v.States, w.States[j:j+width])
 		}
 		s.Weights = append(s.Weights, &v)
 		s.ByName[v.N] = &v

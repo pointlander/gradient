@@ -7,6 +7,7 @@ message Weights {
   string Name = 1;
   repeated int64 Shape = 2;
   repeated double Values = 3;
+  repeated double States = 4;
 }
 
 message Set {
