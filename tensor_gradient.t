@@ -59,9 +59,9 @@ type (
 	// Meta is a function that takes a continuation and return a continuation
 	Meta func(k Continuation) Continuation
 	// Unary is a unary function
-	Unary func(k Continuation, node int, a *V) bool
+	Unary func(k Continuation, node int, a *V, options ...map[string]interface{}) bool
 	// Binary is a binary function
-	Binary func(k Continuation, node int, a, b *V) bool
+	Binary func(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool
 	// Operation is an operation that takes multiple parameters
 	Operation func(k Continuation, node int, a ...*V) bool
 )
@@ -433,7 +433,7 @@ func (c *Context) Set(node int, value []{{.Type}}) {
 }
 
 // Add adds two tensors
-func (context *Context) Add(k Continuation, node int, a, b *V) bool {
+func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -501,7 +501,7 @@ func (context *Context) Add(k Continuation, node int, a, b *V) bool {
 }
 
 // Sub subtracts two tensors
-func (context *Context) Sub(k Continuation, node int, a, b *V) bool {
+func (context *Context) Sub(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -531,7 +531,7 @@ func (context *Context) Sub(k Continuation, node int, a, b *V) bool {
 }
 
 // Mul multiplies two tensors
-func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
+func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -749,7 +749,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V) bool {
 }
 
 // Hadamard computes the hadamard product of two tensors
-func (context *Context) Hadamard(k Continuation, node int, a, b *V) bool {
+func (context *Context) Hadamard(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -779,7 +779,7 @@ func (context *Context) Hadamard(k Continuation, node int, a, b *V) bool {
 }
 
 // T the transpose of the matrix
-func (context *Context) T(k Continuation, node int, a *V) bool {
+func (context *Context) T(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S[1], a.S[0])
 	cached := context.Get(node)
 	if cached != nil {
@@ -807,7 +807,7 @@ func (context *Context) T(k Continuation, node int, a *V) bool {
 }
 
 // T the transpose of the matrix
-func (context *Context) Slice(k Continuation, node int, a *V, b *V) bool {
+func (context *Context) Slice(k Continuation, node int, a *V, b *V, options ...map[string]interface{}) bool {
 	if b.S[0] != 2 && b.S[1] != 1 {
 		panic("invalid size for slice")
 	}
@@ -847,7 +847,7 @@ func (context *Context) Slice(k Continuation, node int, a *V, b *V) bool {
 }
 
 // Concat concats two tensors
-func (context *Context) Concat(k Continuation, node int, a, b *V) bool {
+func (context *Context) Concat(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -891,7 +891,7 @@ func (context *Context) Concat(k Continuation, node int, a, b *V) bool {
 }
 
 // Sin the sine of a number
-func (context *Context) Sin(k Continuation, node int, a *V) bool {
+func (context *Context) Sin(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -913,7 +913,7 @@ func (context *Context) Sin(k Continuation, node int, a *V) bool {
 }
 
 // Cos the cosine of a tensor
-func (context *Context) Cos(k Continuation, node int, a *V) bool {
+func (context *Context) Cos(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -935,7 +935,7 @@ func (context *Context) Cos(k Continuation, node int, a *V) bool {
 }
 
 // Exp the base e exponential of a tensor
-func (context *Context) Exp(k Continuation, node int, a *V) bool {
+func (context *Context) Exp(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -957,7 +957,7 @@ func (context *Context) Exp(k Continuation, node int, a *V) bool {
 }
 
 // Log the natural logarithm of a tensor
-func (context *Context) Log(k Continuation, node int, a *V) bool {
+func (context *Context) Log(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -979,7 +979,7 @@ func (context *Context) Log(k Continuation, node int, a *V) bool {
 }
 
 // Sigmoid computes the sigmoid of a vector
-func (context *Context) Sigmoid(k Continuation, node int, a *V) bool {
+func (context *Context) Sigmoid(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -1003,7 +1003,7 @@ func (context *Context) Sigmoid(k Continuation, node int, a *V) bool {
 }
 
 // TanH the hyperbolic tangent of a tensor
-func (context *Context) TanH(k Continuation, node int, a *V) bool {
+func (context *Context) TanH(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -1027,7 +1027,7 @@ func (context *Context) TanH(k Continuation, node int, a *V) bool {
 }
 
 // Softplus the softplus activation function
-func (context *Context) Softplus(k Continuation, node int, a *V) bool {
+func (context *Context) Softplus(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -1050,7 +1050,7 @@ func (context *Context) Softplus(k Continuation, node int, a *V) bool {
 
 {{if or (eq .Type "float64") (eq .Type "float32")}}
 // Everett computes the split reality activation function
-func (context *Context) Everett(k Continuation, node int, a *V) bool {
+func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(2*a.S[0], a.S[1])
 	cached := context.Get(node)
 	if cached != nil {
@@ -1129,7 +1129,7 @@ func (context *Context) Everett(k Continuation, node int, a *V) bool {
 	return false
 }
 
-func (context *Context) EverettReLu(k Continuation, node int, a *V) bool {
+func (context *Context) EverettReLu(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(2*a.S[0], a.S[1])
 	cached := context.Get(node)
 	if cached != nil {
@@ -1158,7 +1158,7 @@ func (context *Context) EverettReLu(k Continuation, node int, a *V) bool {
 {{end}}
 
 // Softmax is the softmax function
-func (context *Context) Softmax(k Continuation, node int, a *V) bool {
+func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
 	cached := context.Get(node)
 	if cached != nil {
@@ -1189,7 +1189,7 @@ func (context *Context) Softmax(k Continuation, node int, a *V) bool {
 }
 
 // Sum sums a vector
-func (context *Context) Sum(k Continuation, node int, a *V) bool {
+func (context *Context) Sum(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c, sum := NewV(1), {{.Type}}(0.0)
 	cached := context.Get(node)
 	if cached != nil {
@@ -1213,7 +1213,7 @@ func (context *Context) Sum(k Continuation, node int, a *V) bool {
 }
 
 // SumRows sums the rows of the matrix
-func (context *Context) SumRows(k Continuation, node int, a *V) bool {
+func (context *Context) SumRows(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	size, width := len(a.X), a.S[0]
 	c := NewV(width)
 	cached := context.Get(node)
@@ -1241,7 +1241,7 @@ func (context *Context) SumRows(k Continuation, node int, a *V) bool {
 }
 
 // Quadratic computes the quadratic cost of two tensors
-func (context *Context) Quadratic(k Continuation, node int, a, b *V) bool {
+func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1281,7 +1281,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V) bool {
 }
 
 // CrossEntropy computes the cross entropy cost of two tensors
-func (context *Context) CrossEntropy(k Continuation, node int, a, b *V) bool {
+func (context *Context) CrossEntropy(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1331,7 +1331,7 @@ func (context *Context) CrossEntropy(k Continuation, node int, a, b *V) bool {
 }
 
 // Similarity computes the cosine similarity cost of two tensors
-func (context *Context) Similarity(k Continuation, node int, a, b *V) bool {
+func (context *Context) Similarity(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1373,7 +1373,7 @@ func (context *Context) Similarity(k Continuation, node int, a, b *V) bool {
 }
 
 // Orthogonality computes the cosine similarity between all vectros
-func (context *Context) Orthogonality(k Continuation, node int, a *V) bool {
+func (context *Context) Orthogonality(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1413,7 +1413,7 @@ func (context *Context) Orthogonality(k Continuation, node int, a *V) bool {
 }
 
 // Entropy computes the entropy of the vectors
-func (context *Context) Entropy(k Continuation, node int, a *V) bool {
+func (context *Context) Entropy(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1449,7 +1449,7 @@ func (context *Context) Entropy(k Continuation, node int, a *V) bool {
 }
 
 // Variance computes the variance of the vectors
-func (context *Context) Variance(k Continuation, node int, a *V) bool {
+func (context *Context) Variance(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1498,7 +1498,7 @@ func (context *Context) Variance(k Continuation, node int, a *V) bool {
 }
 
 // Abs computes the absolute value of the tensor
-func (context *Context) Abs(k Continuation, node int, a *V) bool {
+func (context *Context) Abs(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
 	cached := context.Get(node)
 	if cached != nil {
@@ -1529,7 +1529,7 @@ func (context *Context) Abs(k Continuation, node int, a *V) bool {
 
 {{if or (eq .Type "float64") (eq .Type "float32")}}
 // Quantize quantizes the values
-func (context *Context) Quant(k Continuation, node int, a *V) bool {
+func (context *Context) Quant(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	if context.Quantize > FractionBits {
 		panic("too much quantization")
 	}
@@ -1557,7 +1557,7 @@ func (context *Context) Quant(k Continuation, node int, a *V) bool {
 {{end}}
 
 // Avg computes the average of the tensor
-func (context *Context) Avg(k Continuation, node int, a *V) bool {
+func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c, sum := NewV(1), {{.Type}}(0.0)
 {{if eq .Type "float64"}}
 	total := {{.Type}}(len(a.X))
@@ -1589,7 +1589,7 @@ func (context *Context) Avg(k Continuation, node int, a *V) bool {
 
 {{if eq .Type "complex128"}}
 // Combines two complex tensors to a complex tensor
-func (context *Context) Complex(k Continuation, node int, a, b *V) bool {
+func (context *Context) Complex(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -1646,15 +1646,15 @@ func (context *Context) Op(op Operation) func(a ...Meta) Meta {
 }
 
 // B converts a binary function into an operator
-func (context *Context) B(op Binary) func(a, b Meta) Meta {
-	return func(a, b Meta) Meta {
+func (context *Context) B(op Binary) func(a, b Meta, options ...map[string]interface{}) Meta {
+	return func(a, b Meta, options ...map[string]interface{}) Meta {
 		node := context.Node
 		context.Node++
 		return func(k Continuation) Continuation {
 			return a(func(a *V) bool {
 				derivatives := false
 				b(func(b *V) bool {
-					derivatives = op(k, node, a, b)
+					derivatives = op(k, node, a, b, options...)
 					return derivatives
 				})
 				return derivatives
@@ -1664,13 +1664,13 @@ func (context *Context) B(op Binary) func(a, b Meta) Meta {
 }
 
 // U converts a unary function into an operator
-func (context *Context) U(op Unary) func(a Meta) Meta {
-	return func(a Meta) Meta {
+func (context *Context) U(op Unary) func(a Meta, options ...map[string]interface{}) Meta {
+	return func(a Meta, options ...map[string]interface{}) Meta {
 		node := context.Node
 		context.Node++
 		return func(k Continuation) Continuation {
 			return a(func(b *V) bool {
-				return op(k, node, b)
+				return op(k, node, b, options...)
 			})
 		}
 	}
