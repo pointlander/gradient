@@ -807,16 +807,9 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 }
 
 // T the transpose of the matrix
-func (context *Context) Slice(k Continuation, node int, a *V, b *V, options ...map[string]interface{}) bool {
-	if b.S[0] != 2 && b.S[1] != 1 {
-		panic("invalid size for slice")
-	}
+func (context *Context) Slice(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	width := a.S[0]
-	{{if or (eq .Type "float64") (eq .Type "float32")}}
-		begin, end := int(b.X[0]), int(b.X[1])
-	{{else if eq .Type "complex128"}}
-		begin, end := int(cmplx.Abs(b.X[0])), int(cmplx.Abs(b.X[1]))
-	{{end}}
+	begin, end := *options[0]["begin"].(*int), *options[0]["end"].(*int)
 
 	c, size := NewV(end-begin, a.S[1]), len(a.X)
 	cached := context.Get(node)
@@ -1696,7 +1689,7 @@ var (
 	// T the transpose of the matrix
 	T = U(Static.T)
 	// Slice slices the matrix
-	Slice = B(Static.Slice)
+	Slice = U(Static.Slice)
 	// Concat concats two tensors
 	Concat = B(Static.Concat)
 	// Sin the sin of a tensors
