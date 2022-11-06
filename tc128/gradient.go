@@ -666,30 +666,58 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 func (context *Context) Slice(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	width := a.S[0]
 	begin, end := *options[0]["begin"].(*int), *options[0]["end"].(*int)
-
-	c, size := NewV(end-begin, a.S[1]), len(a.X)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
+	dd, ok := options[0]["d"].(*int)
+	d := 0
+	if ok {
+		d = *dd
 	}
-	if cached == nil {
-		for i := 0; i < size; i += width {
-			av := a.X[i+begin : i+end]
+	if d == 0 {
+		c := NewV(end-begin, 1)
+		cached := context.Get(node)
+		if cached != nil {
+			c.X = cached
+		}
+		if cached == nil {
+			av := a.X[begin:end]
 			for _, ax := range av {
 				c.X = append(c.X, ax)
 			}
 		}
-	}
-	context.Set(node, c.X)
-	if k(&c) {
-		return true
-	}
-	index := 0
-	for i := 0; i < size; i += width {
-		ad := a.D[i+begin : i+end]
+		context.Set(node, c.X)
+		if k(&c) {
+			return true
+		}
+		index := 0
+		ad := a.D[begin:end]
 		for j := range ad {
 			ad[j] += c.D[index]
 			index++
+		}
+	} else if d == 2 {
+		c, size := NewV(end-begin, a.S[1]), len(a.X)
+		cached := context.Get(node)
+		if cached != nil {
+			c.X = cached
+		}
+		if cached == nil {
+			for i := 0; i < size; i += width {
+				av := a.X[i+begin : i+end]
+				for _, ax := range av {
+					c.X = append(c.X, ax)
+				}
+			}
+		}
+		context.Set(node, c.X)
+		if k(&c) {
+			return true
+		}
+		index := 0
+		for i := 0; i < size; i += width {
+			ad := a.D[i+begin : i+end]
+			for j := range ad {
+				ad[j] += c.D[index]
+				index++
+			}
 		}
 	}
 	return false
