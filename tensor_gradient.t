@@ -806,7 +806,46 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 	return false
 }
 
-// T the transpose of the matrix
+{{if eq .Type "complex128"}}
+// H the conjugate transpose of the matrix
+func (context *Context) H(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := NewV(a.S[1], a.S[0])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for p := 0; p < a.S[0]; p++ {
+			for q := 0; q < a.S[1]; q++ {
+				c.X = append(c.X, cmplx.Conj(a.X[q*a.S[0] + p]))
+			}
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	i := 0
+	for p := 0; p < a.S[0]; p++ {
+		for q := 0; q < a.S[1]; q++ {
+			ax := cmplx.Conj(a.X[q*a.S[0] + p])
+			x := real(ax)
+			y := imag(ax)
+			if x != 0 {
+				x /= x
+			}
+			if y != 0 {
+				y /= y
+			}
+			a.D[q*a.S[0] + p] += c.D[i] * complex(x, y)
+			i++
+		}
+	}
+	return false
+}
+{{end}}
+
+// Slice a slice of the matrix
 func (context *Context) Slice(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	width := a.S[0]
 	begin, end := *options[0]["begin"].(*int), *options[0]["end"].(*int)
@@ -1716,6 +1755,10 @@ var (
 	Hadamard = B(Static.Hadamard)
 	// T the transpose of the matrix
 	T = U(Static.T)
+{{if eq .Type "complex128"}}
+	// H the conjugate transpose of the matrix
+	H = U(Static.H)
+{{end}}
 	// Slice slices the matrix
 	Slice = U(Static.Slice)
 	// Concat concats two tensors

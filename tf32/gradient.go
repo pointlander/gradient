@@ -650,7 +650,7 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 	return false
 }
 
-// T the transpose of the matrix
+// Slice a slice of the matrix
 func (context *Context) Slice(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	width := a.S[0]
 	begin, end := *options[0]["begin"].(*int), *options[0]["end"].(*int)
@@ -1514,6 +1514,7 @@ var (
 	Hadamard = B(Static.Hadamard)
 	// T the transpose of the matrix
 	T = U(Static.T)
+
 	// Slice slices the matrix
 	Slice = U(Static.Slice)
 	// Concat concats two tensors
