@@ -1217,6 +1217,55 @@ func (context *Context) EverettReLu(k Continuation, node int, a *V, options ...m
 }
 {{end}}
 
+{{if or (eq .Type "float64") (eq .Type "float32")}}
+const (
+	// S is the scaling factor for the softmax
+	S = 1.0 - 1e-300
+)
+
+// Softmax is the softmax function for big numbers
+func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c, size, width := NewV(a.S...), len(a.X), a.S[0]
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		S := S
+		s, ok := options[0]["S"]
+		if ok {
+			S = s.(float64)
+		}
+		max := {{.Type}}(0)
+		for _, v := range a.X {
+			if v > max {
+				max = v
+			}
+		}
+		values := make([]float64, width)
+		for i := 0; i < size; i += width {
+			s := float64(max) * S
+			sum := 0.0
+			for j, ax := range a.X[i : i+width] {
+				values[j] = math.Exp(float64(ax) - s)
+				sum += values[j]
+			}
+			for _, cx := range values {
+				c.X = append(c.X, {{.Type}}(cx/sum))
+			}
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	for i, d := range c.D {
+		cx := c.X[i]
+		a.D[i] += d * (cx - cx*cx)
+	}
+	return false
+}
+{{else}}
 // Softmax is the softmax function
 func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
@@ -1247,6 +1296,7 @@ func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[s
 	}
 	return false
 }
+{{end}}
 
 // Sum sums a vector
 func (context *Context) Sum(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
