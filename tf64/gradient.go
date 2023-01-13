@@ -980,6 +980,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	return false
 }
 
+// EverettReLu computes an adapter relu
 func (context *Context) EverettReLu(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(2*a.S[0], a.S[1])
 	cached := context.Get(node)
@@ -1002,6 +1003,34 @@ func (context *Context) EverettReLu(k Continuation, node int, a *V, options ...m
 	for i, j := range c.D {
 		if c.X[i] != 0 {
 			a.D[i>>1] += j
+		}
+	}
+	return false
+}
+
+// ReLu computes the rectified linear activation function
+func (context *Context) ReLu(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := NewV(a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for _, j := range a.X {
+			max := j
+			if max < 0 {
+				max = 0
+			}
+			c.X = append(c.X, max)
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		if c.X[i] != 0 {
+			a.D[i] += j
 		}
 	}
 	return false
@@ -1541,6 +1570,7 @@ var (
 	// Everett computes the split reality activation function
 	Everett     = U(Static.Everett)
 	EverettReLu = U(Static.EverettReLu)
+	ReLu        = U(Static.ReLu)
 
 	// Softmax is the softmax function
 	Softmax = U(Static.Softmax)
