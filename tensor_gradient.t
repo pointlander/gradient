@@ -1261,9 +1261,11 @@ func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[s
 	}
 	if cached == nil {
 		S := S
-		s, ok := options[0]["S"]
-		if ok {
-			S = s.(float64)
+		if len(options) > 0 {
+			s, ok := options[0]["S"]
+			if ok {
+				S = s.(float64)
+			}
 		}
 		max := {{.Type}}(0)
 		for _, v := range a.X {
