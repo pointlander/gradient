@@ -1568,9 +1568,9 @@ var (
 	TanH = U(Static.TanH)
 	// Softplus the softplus activation function
 	Softplus = U(Static.Softplus)
-
 	// Everett computes the split reality activation function
-	Everett     = U(Static.Everett)
+	Everett = U(Static.Everett)
+
 	EverettReLu = U(Static.EverettReLu)
 	ReLu        = U(Static.ReLu)
 

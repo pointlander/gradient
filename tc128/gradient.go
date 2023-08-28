@@ -962,6 +962,100 @@ func (context *Context) Softplus(k Continuation, node int, a *V, options ...map[
 	return false
 }
 
+// Everett computes the split reality activation function
+func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := NewV(2*a.S[0], a.S[1])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if a.Seed != 0 {
+		c.Seed, c.Drop = a.Seed, a.Drop
+		index, dropout, factor := 0, uint32((1-a.Drop)*math.MaxUint32), complex(1/(1-a.Drop), 0)
+		if cached == nil {
+			for i := 0; i < a.S[1]; i++ {
+				rng := a.Seed
+				for j := 0; j < a.S[0]; j++ {
+					if rng.Next() > dropout {
+						c.X = append(c.X, 0, 0)
+						index++
+						continue
+					}
+					ax := a.X[index]
+					rmin, rmax := real(ax), real(ax)
+					if rmin > 0 {
+						rmin = 0
+					}
+					if rmax < 0 {
+						rmax = 0
+					}
+					imin, imax := imag(ax), imag(ax)
+					if imin > 0 {
+						imin = 0
+					}
+					if imax < 0 {
+						imax = 0
+					}
+					c.X = append(c.X, complex(rmin, imin)*factor, complex(rmax, imax)*factor)
+					index++
+				}
+			}
+		}
+		context.Set(node, c.X)
+		if k(&c) {
+			return true
+		}
+		index = 0
+		for i := 0; i < a.S[1]; i++ {
+			rng := a.Seed
+			for j := 0; j < a.S[0]; j++ {
+				if rng.Next() > dropout {
+					index += 2
+					continue
+				}
+				if c.X[index] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
+					a.D[index>>1] += c.D[index]
+				}
+				if c.X[index+1] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
+					a.D[index>>1] += c.D[index+1]
+				}
+				index += 2
+			}
+		}
+		return false
+	}
+
+	if cached == nil {
+		for _, j := range a.X {
+			rmin, rmax := real(j), real(j)
+			if rmin > 0 {
+				rmin = 0
+			}
+			if rmax < 0 {
+				rmax = 0
+			}
+			imin, imax := imag(j), imag(j)
+			if imin > 0 {
+				imin = 0
+			}
+			if imax < 0 {
+				imax = 0
+			}
+			c.X = append(c.X, complex(rmin, imin), complex(rmax, imax))
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		if c.X[i] != 0 || (c.X[i&^1] == 0 && c.X[i|1] == 0) {
+			a.D[i>>1] += j
+		}
+	}
+	return false
+}
+
 // Softmax is the softmax function
 func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c, size, width := NewV(a.S...), len(a.X), a.S[0]
@@ -1383,6 +1477,29 @@ func (context *Context) Complex(k Continuation, node int, a, b *V, options ...ma
 	return false
 }
 
+// Phase computes the phase of a complex tensor
+func (context *Context) Phase(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := NewV(a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for _, ax := range a.X {
+			c.X = append(c.X, complex(cmplx.Phase(ax), 0))
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	for i, cD := range c.D {
+		ax := a.X[i]
+		a.D[i] += cD / (ax*ax + 1)
+	}
+	return false
+}
+
 // Op is a operation
 func (context *Context) Op(op Operation) func(a ...Meta) Meta {
 	return func(a ...Meta) Meta {
@@ -1479,6 +1596,8 @@ var (
 	TanH = U(Static.TanH)
 	// Softplus the softplus activation function
 	Softplus = U(Static.Softplus)
+	// Everett computes the split reality activation function
+	Everett = U(Static.Everett)
 
 	// Softmax is the softmax function
 	Softmax = U(Static.Softmax)
@@ -1506,6 +1625,8 @@ var (
 
 	// Combines two complex tensors to a complex tensor
 	Complex = B(Static.Complex)
+	// Phase computes the phase of a complex tensor
+	Phase = U(Static.Phase)
 )
 
 // Gradient computes the gradient
