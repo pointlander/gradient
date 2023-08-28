@@ -1495,7 +1495,10 @@ func (context *Context) Phase(k Continuation, node int, a *V, options ...map[str
 	}
 	for i, cD := range c.D {
 		ax := a.X[i]
-		a.D[i] += cD / (ax*ax + 1)
+		aa := real(ax)
+		bb := imag(ax)
+		cc := (aa*aa + bb*bb)
+		a.D[i] += cD * complex((bb*bb-aa*aa)/(cc*cc), 0)
 	}
 	return false
 }
