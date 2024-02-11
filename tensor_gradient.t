@@ -1386,7 +1386,13 @@ func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[s
 	}
 	for i, d := range c.D {
 		cx := c.X[i]
-		a.D[i] += d * (cx - cx*cx)
+		for j := range c.X {
+			if j == i {
+				a.D[j] += d * cx * (1 - cx)
+			} else {
+				a.D[j] -= d * cx * c.X[j]
+			}
+		}
 	}
 	return false
 }
@@ -1417,7 +1423,13 @@ func (context *Context) Softmax(k Continuation, node int, a *V, options ...map[s
 	}
 	for i, d := range c.D {
 		cx := c.X[i]
-		a.D[i] += d * (cx - cx*cx)
+		for j := range c.X {
+			if j == i {
+				a.D[j] += d * cx * (1 - cx)
+			} else {
+				a.D[j] -= d * cx * c.X[j]
+			}
+		}
 	}
 	return false
 }
