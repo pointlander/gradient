@@ -299,6 +299,27 @@ func (c *Context) Set(node int, value []complex128) {
 	}
 }
 
+// Copy copies src tensors into dst
+func (context *Context) Copy(k Continuation, node int, dst, src *V, options ...map[string]interface{}) bool {
+	if len(src.S) != 2 || len(dst.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	if (src.S[0] != dst.S[0]) || (src.S[1] != dst.S[1]) {
+		panic("dimensions are not the same")
+	}
+	c := NewV(src.S...)
+	c.X = append(c.X, src.X...)
+	copy(dst.X, src.X)
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		src.D[i] += j
+		dst.D[i] += j
+	}
+	return false
+}
+
 // Add adds two tensors
 func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
@@ -1573,6 +1594,8 @@ var (
 	B = Static.B
 	// U converts a unary function into an operator
 	U = Static.U
+	// Copy copies src tensors into dst
+	Copy = B(Static.Copy)
 	// Add adds two tensors
 	Add = B(Static.Add)
 	// Sub subtracts two tensors
