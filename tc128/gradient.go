@@ -53,11 +53,12 @@ func abs(a complex128) complex128 {
 }
 
 var (
-	sin  = cmplx.Sin
-	cos  = cmplx.Cos
-	exp  = cmplx.Exp
-	log  = cmplx.Log
-	sqrt = cmplx.Sqrt
+	sin   = cmplx.Sin
+	cos   = cmplx.Cos
+	exp   = cmplx.Exp
+	log   = cmplx.Log
+	sqrt  = cmplx.Sqrt
+	isinf = cmplx.IsInf
 )
 
 // Next returns the next random number
@@ -923,7 +924,11 @@ func (context *Context) Sigmoid(k Continuation, node int, a *V, options ...map[s
 	if cached == nil {
 		for _, j := range a.X {
 			e := exp(j)
-			c.X = append(c.X, e/(e+1))
+			if isinf(e) {
+				c.X = append(c.X, 1)
+			} else {
+				c.X = append(c.X, e/(e+1))
+			}
 		}
 	}
 	context.Set(node, c.X)

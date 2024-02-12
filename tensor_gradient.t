@@ -77,6 +77,9 @@ var (
 	floatBits = math.Float64bits
 	floatFrombits = math.Float64frombits
 )
+func isinf(a float64) bool {
+	return math.IsInf(a, 0)
+}
 const (
 	QuantizeMask = (1 << 64) - 1
 	FractionBits = 52
@@ -104,6 +107,9 @@ var (
 	floatBits = math.Float32bits
 	floatFrombits = math.Float32frombits
 )
+func isinf(a float32) bool {
+	return math.IsInf(float64(a), 0)
+}
 const (
 	QuantizeMask = (1 << 32) - 1
 	FractionBits = 23
@@ -118,6 +124,7 @@ var (
 	exp  = cmplx.Exp
 	log  = cmplx.Log
 	sqrt = cmplx.Sqrt
+	isinf = cmplx.IsInf
 )
 {{end}}
 
@@ -1069,7 +1076,11 @@ func (context *Context) Sigmoid(k Continuation, node int, a *V, options ...map[s
 	if cached == nil {
 		for _, j := range a.X {
 			e := exp(j)
-			c.X = append(c.X, e/(e+1))
+			if isinf(e) {
+				c.X = append(c.X, 1)
+			} else {
+				c.X = append(c.X, e/(e+1))
+			}
 		}
 	}
 	context.Set(node, c.X)
