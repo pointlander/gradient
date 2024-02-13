@@ -61,6 +61,10 @@ var (
 	isinf = cmplx.IsInf
 )
 
+func sign(a complex128) int {
+	return 0
+}
+
 // Next returns the next random number
 func (r *RNG) Next() uint32 {
 	lfsr := *r
@@ -925,7 +929,11 @@ func (context *Context) Sigmoid(k Continuation, node int, a *V, options ...map[s
 		for _, j := range a.X {
 			e := exp(j)
 			if isinf(e) {
-				c.X = append(c.X, 1)
+				if sign(e) == 1 {
+					c.X = append(c.X, 1)
+				} else {
+					c.X = append(c.X, 0)
+				}
 			} else {
 				c.X = append(c.X, e/(e+1))
 			}

@@ -61,6 +61,16 @@ var (
 func isinf(a float64) bool {
 	return math.IsInf(a, 0)
 }
+func sign(a float64) int {
+	switch true {
+	case a > 0:
+		return 1
+	case a < 0:
+		return -1
+	default:
+		return 0
+	}
+}
 
 const (
 	QuantizeMask = (1 << 64) - 1
@@ -866,7 +876,11 @@ func (context *Context) Sigmoid(k Continuation, node int, a *V, options ...map[s
 		for _, j := range a.X {
 			e := exp(j)
 			if isinf(e) {
-				c.X = append(c.X, 1)
+				if sign(e) == 1 {
+					c.X = append(c.X, 1)
+				} else {
+					c.X = append(c.X, 0)
+				}
 			} else {
 				c.X = append(c.X, e/(e+1))
 			}
