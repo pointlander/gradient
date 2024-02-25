@@ -7,6 +7,7 @@ package tf64
 import (
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"os"
 
 	"github.com/golang/protobuf/proto"
@@ -70,6 +71,9 @@ func sign(a float64) int {
 	default:
 		return 0
 	}
+}
+func convert(a float64) float64 {
+	return a
 }
 
 const (
@@ -773,6 +777,48 @@ func (context *Context) Concat(k Continuation, node int, a, b *V, options ...map
 		}
 		i += widthA
 		j += widthB
+	}
+	return false
+}
+
+// Dropout is a dropout regularization function
+func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	size, width := len(a.X), a.S[0]
+	rng := options[0]["rng"].(*rand.Rand)
+	drop := .1
+	if options[0]["drop"] != nil {
+		drop = *options[0]["drop"].(*float64)
+	}
+	c, drops, factor := NewV(a.S...), make([]int, width), convert(1.0/(1.0-drop))
+	for i := range drops {
+		if rng.Float64() > drop {
+			drops[i] = 1
+		}
+	}
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c.X = c.X[:cap(c.X)]
+		for i := 0; i < size; i += width {
+			for j, ax := range a.X[i : i+width] {
+				if drops[j] == 1 {
+					c.X[i+j] = ax * factor
+				}
+			}
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	for i := 0; i < size; i += width {
+		for j := range a.D[i : i+width] {
+			if drops[j] == 1 {
+				a.D[i+j] += c.D[i+j]
+			}
+		}
 	}
 	return false
 }
