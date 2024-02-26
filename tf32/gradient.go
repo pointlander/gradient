@@ -1664,6 +1664,8 @@ var (
 	Slice = U(Static.Slice)
 	// Concat concats two tensors
 	Concat = B(Static.Concat)
+	// Dropout is a dropout regularization function
+	Dropout = U(Static.Dropout)
 	// Sin the sin of a tensors
 	Sin = U(Static.Sin)
 	// Cos the cosine of a tensor
