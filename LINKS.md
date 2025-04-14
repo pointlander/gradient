@@ -46,3 +46,6 @@ https://medium.com/@marksaroufim/how-to-turn-physics-into-an-optimization-proble
 
 # Derivative of Softmax and the Softmax Cross Entropy Loss
 https://davidbieber.com/snippets/2020-12-12-derivative-of-softmax-and-the-softmax-cross-entropy-loss/  
+
+# NoProp: Training Neural Networks without Back-propagation or Forward-propagation
+https://arxiv.org/abs/2503.24322  
