@@ -631,6 +631,162 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	return false
 }
 
+// MulS multiplies two tensors
+func (context *Context) MulS(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] {
+		panic("first dimension is not the same")
+	}
+	sizeA, sizeB, c :=
+		len(a.X), len(b.X), NewV(a.S[1], b.S[1])
+	c.X = c.X[:cap(c.X)]
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if a.Seed != 0 {
+		c.Seed, c.Drop = a.Seed, a.Drop
+		dropout := uint32((1 - a.Drop) * math.MaxUint32)
+		if cached == nil {
+			mul := func(bv []float32, i int) {
+				rng := a.Seed
+				for j := 0; j < sizeA; j += width {
+					if rng.Next() > dropout {
+						i++
+						continue
+					}
+
+					av := a.X[j : j+width]
+					sum := dot(av, bv)
+
+					c.X[i] = sum
+					i++
+				}
+			}
+			index, step := 0, sizeA/width
+			for i := 0; i < sizeB; i += width {
+				mul(b.X[i:i+width], index)
+				index += step
+			}
+		}
+		context.Set(node, c.X)
+		if k(&c) {
+			return true
+		}
+
+		// a derivatives
+		{
+			derivatives := func(index int, ad []float32) {
+				rows, bi := a.S[1], 0
+				for i := 0; i < sizeB; i += width {
+					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
+
+					axpy(cd, bv, ad)
+
+					bi++
+				}
+			}
+			index, rng := 0, a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					index++
+					continue
+				}
+				ad := a.D[j : j+width]
+				derivatives(index, ad)
+				index++
+			}
+		}
+
+		derivatives := func(index int, bd []float32) {
+			rng := a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					index++
+					continue
+				}
+				av, cd := a.X[j:j+width], c.D[index]
+
+				axpy(cd, av, bd)
+
+				index++
+			}
+		}
+		index, rows := 0, a.S[1]
+		for i := 0; i < sizeB; i += width {
+			bd := b.D[i : i+width]
+			derivatives(index, bd)
+			index += rows
+		}
+
+		return false
+	}
+
+	if cached == nil {
+		mul := func(bv []float32, i int) {
+			for j := 0; j < sizeA; j += width {
+				av, sum := a.X[j:j+width], float32(0.0)
+				for k, bx := range bv {
+					sum += av[k] * bx
+				}
+				c.X[i] = sum
+				i++
+			}
+		}
+		index, step := 0, sizeA/width
+		for i := 0; i < sizeB; i += width {
+			mul(b.X[i:i+width], index)
+			index += step
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+
+	// a derivatives
+	{
+		derivatives := func(index int, ad []float32) {
+			rows, bi := a.S[1], 0
+			for i := 0; i < sizeB; i += width {
+				bv, cd := b.X[i:i+width], c.D[index+bi*rows]
+
+				axpy(cd, bv, ad)
+
+				bi++
+			}
+		}
+		index := 0
+		for j := 0; j < sizeA; j += width {
+			ad := a.D[j : j+width]
+			derivatives(index, ad)
+			index++
+		}
+	}
+
+	// b derivatives
+	derivatives := func(index int, bd []float32) {
+		for j := 0; j < sizeA; j += width {
+			av, cd := a.X[j:j+width], c.D[index]
+
+			axpy(cd, av, bd)
+
+			index++
+		}
+	}
+	index, rows := 0, a.S[1]
+	for i := 0; i < sizeB; i += width {
+		bd := b.D[i : i+width]
+		derivatives(index, bd)
+		index += rows
+	}
+
+	return false
+}
+
 // Hadamard computes the hadamard product of two tensors
 func (context *Context) Hadamard(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
 	if len(a.S) != 2 || len(b.S) != 2 {
