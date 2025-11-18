@@ -1827,6 +1827,8 @@ var (
 	Sub = B(Static.Sub)
 	// Mul multiplies two tensors
 	Mul = B(Static.Mul)
+	// MulS multiplies two tensors
+	MulS = B(Static.MulS)
 	// Hadamard computes the hadamard product of two tensors
 	Hadamard = B(Static.Hadamard)
 	// T the transpose of the matrix
