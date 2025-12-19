@@ -812,7 +812,8 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 }
 
 // MulS multiplies two tensors
-func (context *Context) MulS(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
+func (context *Context) Square(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	b := a
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -820,8 +821,8 @@ func (context *Context) MulS(k Continuation, node int, a, b *V, options ...map[s
 	if width != b.S[0] {
 		panic("first dimension is not the same")
 	}
-	sizeA, sizeB, c :=
-		len(a.X), len(b.X), NewV(a.S[1], b.S[1])
+	sizeA, sizeB, c, done :=
+		len(a.X), len(b.X), NewV(a.S[1], b.S[1]), make(chan bool, 8)
 	c.X = c.X[:cap(c.X)]
 	cached := context.Get(node)
 	if cached != nil {
@@ -850,11 +851,15 @@ func (context *Context) MulS(k Continuation, node int, a, b *V, options ...map[s
 					c.X[i] = sum
 					i++
 				}
+				done <- true
 			}
 			index, step := 0, sizeA/width
 			for i := 0; i < sizeB; i += width {
-				mul(b.X[i : i+width], index)
+				go mul(b.X[i : i+width], index)
 				index += step
+			}
+			for i := 0; i < sizeB; i += width {
+				<-done
 			}
 		}
 		context.Set(node, c.X)
@@ -2256,8 +2261,8 @@ var (
 	Sub = B(Static.Sub)
 	// Mul multiplies two tensors
 	Mul = B(Static.Mul)
-	// MulS multiplies two tensors
-	MulS = B(Static.MulS)
+	// Square squares a tensor
+	Square = U(Static.Square)
 	// Hadamard computes the hadamard product of two tensors
 	Hadamard = B(Static.Hadamard)
 	// T the transpose of the matrix
