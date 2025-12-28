@@ -5,6 +5,7 @@
 package clblast
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -92,9 +93,43 @@ func (context *Context) U(op Unary) func(a Meta, options ...map[string]interface
 }
 
 // Gradient computes the gradient
-func Gradient(a Meta) (cost V) {
+func (context *Context) Gradient(a Meta) (cost V) {
+	fmt.Fprintf(context.Output, `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+	
+#define CL_TARGET_OPENCL_VERSION 120
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
+#include <clblast_c.h>
+
+int main(void) {
+	cl_uint num_platforms;
+	clGetPlatformIDs(0, NULL, &num_platforms);
+	printf(\"%%d\n\", num_platforms);
+	cl_platform_id* platforms = (cl_platform_id*)malloc(num_platforms * sizeof(cl_platform_id));
+	clGetPlatformIDs(num_platforms, platforms, NULL);
+	cl_platform_id platform = platforms[platform_id];
+
+	cl_uint num_devices;
+	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);
+	printf("%%d\n", num_devices);
+	cl_device_id* devices = (cl_device_id*)malloc(num_devices * sizeof(cl_device_id));
+	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);
+	cl_device_id device = devices[device_id];
+
+	cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
+	cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
+`)
 	a(func(a *V) bool {
 		return false
 	})
+	fmt.Fprintf(context.Output, `
+	free(platforms);
+	free(devices);
+	clReleaseCommandQueue(queue);
+	clReleaseContext(context);	
+}
+`)
 	return
 }
