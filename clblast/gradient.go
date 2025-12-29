@@ -13,6 +13,7 @@ type (
 	// V is a tensor value
 	V struct {
 		N string // the name
+		S []int  // the shape
 	}
 	// Set is a set of V
 	Set struct {
@@ -31,10 +32,65 @@ type (
 	Operation func(k Continuation, node int, a ...*V) bool
 )
 
+// Panic marks a place we should never get to
+func Panic(a *V) bool {
+	panic("should not be here")
+}
+
+// Meta returns a meta for the value
+func (a *V) Meta() Meta {
+	return func(k Continuation) Continuation {
+		k(a)
+		return Panic
+	}
+}
+
+// NewSet creates a new weight set
+func NewSet() Set {
+	return Set{
+		ByName: make(map[string]*V),
+	}
+}
+
+// Add adds weights to a set
+func (s *Set) Add(context *Context, name string, d ...int) {
+	v := context.NewV(d...)
+	v.N = name
+	s.Weights = append(s.Weights, &v)
+	s.ByName[name] = &v
+}
+
+// Get gets weights from the set by name
+func (s *Set) Get(name string) Meta {
+	return s.ByName[name].Meta()
+}
+
 // Context is a function context
 type Context struct {
 	Output *os.File
 	Node   int
+}
+
+// NewV create a new tensor value
+func (context *Context) NewV(s ...int) V {
+	if len(s) == 1 {
+		s = []int{s[0], 1}
+	}
+	return V{
+		N: fmt.Sprintf("node%d", context.Node),
+		S: s,
+	}
+}
+
+// Avg computes the average of the tensor
+func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := context.NewV(1)
+
+	if k(&c) {
+		return true
+	}
+
+	return false
 }
 
 // Op is a operation
@@ -94,6 +150,15 @@ func (context *Context) U(op Unary) func(a Meta, options ...map[string]interface
 
 // Gradient computes the gradient
 func (context *Context) Gradient(a Meta) (cost V) {
+	mk, err := os.Create("Makefile")
+	if err != nil {
+		panic(err)
+	}
+	defer mk.Close()
+	fmt.Fprintf(mk, `all: *.c
+	gcc -o model *.c -lclblast -lOpenCL
+`)
+
 	fmt.Fprintf(context.Output, `#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -104,9 +169,12 @@ func (context *Context) Gradient(a Meta) (cost V) {
 #include <clblast_c.h>
 
 int main(void) {
+	const size_t platform_id = 0;
+	const size_t device_id = 0;
+
 	cl_uint num_platforms;
 	clGetPlatformIDs(0, NULL, &num_platforms);
-	printf(\"%%d\n\", num_platforms);
+	printf("%%d\n", num_platforms);
 	cl_platform_id* platforms = (cl_platform_id*)malloc(num_platforms * sizeof(cl_platform_id));
 	clGetPlatformIDs(num_platforms, platforms, NULL);
 	cl_platform_id platform = platforms[platform_id];
