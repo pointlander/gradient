@@ -94,13 +94,40 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
 		clWaitForEvents(1, &event);
 		clReleaseEvent(event);
+		event = NULL;
 	}
 `)
+
+	fmt.Fprintf(context.Output, "\tfloat alpha = %ff;\n", 1/float32(c.S[0]*c.S[1]))
+	fmt.Fprintf(context.Output, "\tstatus = CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event);\n", c.N)
+	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
+	}
+`)
+
+	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		c.N, c.S[0]*c.S[1])
+	fmt.Fprintf(context.Output, "\tfloat* host_%s_d = (float*)calloc(1, sizeof(float));\n",
+		c.N)
+	fmt.Fprintf(context.Output, "clEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, 1 * sizeof(float), host_%s_d, 0, NULL, NULL);",
+		c.N, c.N)
 
 	if k(&c) {
 		return true
 	}
 
+	fmt.Fprintf(context.Output, "\tstatus = CLBlastSaxpy(1, alpha, device_%s_d, 0, 0, device_%s_d, 0, 1, &queue, &event);\n", c.N, a.N)
+	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
+	}
+`)
+
+	fmt.Fprintf(context.Output, "\tfree(host_%s_d);\n", c.N)
+	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", c.N)
 	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", c.N)
 
 	return false
@@ -197,8 +224,8 @@ struct V {
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\t%s.W = %d;\n", value.N, value.S[0])
 		fmt.Fprintf(context.Output, "\t%s.H = %d;\n", value.N, value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.X = (float*)malloc(sizeof(float) * %d);\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.D = (float*)malloc(sizeof(float) * %d);\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.X = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.D = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
 	}
 	fmt.Fprintf(context.Output, `}
 void uninit(void) {
@@ -216,14 +243,14 @@ int main(void) {
 	cl_uint num_platforms;
 	clGetPlatformIDs(0, NULL, &num_platforms);
 	printf("%%d\n", num_platforms);
-	cl_platform_id* platforms = (cl_platform_id*)malloc(num_platforms * sizeof(cl_platform_id));
+	cl_platform_id* platforms = (cl_platform_id*)calloc(num_platforms, sizeof(cl_platform_id));
 	clGetPlatformIDs(num_platforms, platforms, NULL);
 	cl_platform_id platform = platforms[platform_id];
 
 	cl_uint num_devices;
 	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);
 	printf("%%d\n", num_devices);
-	cl_device_id* devices = (cl_device_id*)malloc(num_devices * sizeof(cl_device_id));
+	cl_device_id* devices = (cl_device_id*)calloc(num_devices, sizeof(cl_device_id));
 	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);
 	cl_device_id device = devices[device_id];
 
@@ -235,9 +262,13 @@ int main(void) {
 			value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tclEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, NULL);\n",
 			value.N, value.S[0]*value.S[1], value.N)
+		fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+			value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tclEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, NULL);\n",
+			value.N, value.S[0]*value.S[1], value.N)
 	}
 	a(func(a *V) bool {
-		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)malloc(sizeof(float) * %d);\n", a.N, a.S[0]*a.S[1])
+		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
 		fmt.Fprintf(context.Output, "\tclEnqueueReadBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, NULL);\n",
 			a.N, a.S[0]*a.S[1], a.N)
 		fmt.Fprintf(context.Output, "\tfree(host_%s);\n", a.N)
@@ -245,6 +276,9 @@ int main(void) {
 	})
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", value.N)
+		fmt.Fprintf(context.Output, "\tclEnqueueReadBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, NULL);\n",
+			value.N, value.S[0]*value.S[1], value.N)
+		fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
 	uninit();
