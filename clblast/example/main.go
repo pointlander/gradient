@@ -24,5 +24,5 @@ func main() {
 
 	Avg := context.U(context.Avg)
 	loss := Avg(set.Get("data"))
-	context.Gradient(loss)
+	context.Gradient(set, loss)
 }

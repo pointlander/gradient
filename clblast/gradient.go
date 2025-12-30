@@ -86,9 +86,22 @@ func (context *Context) NewV(s ...int) V {
 func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(1)
 
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		c.N, c.S[0]*c.S[1])
+	fmt.Fprintf(context.Output, "\tCLBlastStatusCode status = CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event);\n",
+		c.S[0]*c.S[1], c.N, a.N)
+	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+	}
+`)
+
 	if k(&c) {
 		return true
 	}
+
+	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", c.N)
 
 	return false
 }
@@ -149,7 +162,7 @@ func (context *Context) U(op Unary) func(a Meta, options ...map[string]interface
 }
 
 // Gradient computes the gradient
-func (context *Context) Gradient(a Meta) (cost V) {
+func (context *Context) Gradient(set Set, a Meta) (cost V) {
 	mk, err := os.Create("Makefile")
 	if err != nil {
 		panic(err)
@@ -168,7 +181,35 @@ func (context *Context) Gradient(a Meta) (cost V) {
 
 #include <clblast_c.h>
 
+struct V {
+	int W;
+	int H;
+	float *X;
+	float *D;	
+};
+`)
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "struct V %s;\n", value.N)
+	}
+
+	fmt.Fprintf(context.Output, `void init(void) {
+`)
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "\t%s.W = %d;\n", value.N, value.S[0])
+		fmt.Fprintf(context.Output, "\t%s.H = %d;\n", value.N, value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.X = (float*)malloc(sizeof(float) * %d);\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.D = (float*)malloc(sizeof(float) * %d);\n", value.N, value.S[0]*value.S[1])
+	}
+	fmt.Fprintf(context.Output, `}
+void uninit(void) {
+`)
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "\tfree(%s.X);\n", value.N)
+		fmt.Fprintf(context.Output, "\tfree(%s.D);\n", value.N)
+	}
+	fmt.Fprintf(context.Output, `}
 int main(void) {
+	init();
 	const size_t platform_id = 0;
 	const size_t device_id = 0;
 
@@ -189,10 +230,24 @@ int main(void) {
 	cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
 	cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
 `)
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+			value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tclEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, NULL);\n",
+			value.N, value.S[0]*value.S[1], value.N)
+	}
 	a(func(a *V) bool {
+		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)malloc(sizeof(float) * %d);\n", a.N, a.S[0]*a.S[1])
+		fmt.Fprintf(context.Output, "\tclEnqueueReadBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, NULL);\n",
+			a.N, a.S[0]*a.S[1], a.N)
+		fmt.Fprintf(context.Output, "\tfree(host_%s);\n", a.N)
 		return false
 	})
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", value.N)
+	}
 	fmt.Fprintf(context.Output, `
+	uninit();
 	free(platforms);
 	free(devices);
 	clReleaseCommandQueue(queue);
