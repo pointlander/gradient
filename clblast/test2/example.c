@@ -7,13 +7,20 @@
 
 #include <CL/opencl.h> // Include the OpenCL header
 
-const char* kernel_source = "// OpenCL C Kernel function (must return void)\n\
-__kernel void vecadd(__global int* A, __global int* B, __global int* C) {\n\
-    // Get the global unique ID of the current work item\n\
+const char* kernel_source = "__kernel void everett(__global float* input, __global float* output) {\n\
     const int idx = get_global_id(0);\n\
-\n\
-    // Perform the parallel operation\n\
-    C[idx] = A[idx] + B[idx];\n\
+    const int idx2 = 2*idx;\n\
+	const float in = input[idx];\n\
+	if (in < 0.0f) {\n\
+		output[idx2] = 0.0f;\n\
+	} else {\n\
+		output[idx2] = in;\n\
+	}\n\
+	if (in > 0.0f) {\n\
+		output[idx2+1] = 0.0f;\n\
+	} else {\n\
+		output[idx2+1] = in;\n\
+	}\n\
 }\n";
 
 int main() {
@@ -35,7 +42,7 @@ int main() {
     clBuildProgram(program, 1, &device, NULL, NULL, NULL); // Compile the program for the device
 
     // 5. Create the kernel
-    cl_kernel kernel = clCreateKernel(program, "vecadd", NULL); // Name must match the kernel function in the .cl file
+    cl_kernel kernel = clCreateKernel(program, "everett", NULL); // Name must match the kernel function in the .cl file
 
     // (Omitted for brevity: memory buffer creation and data transfer using clCreateBuffer and clEnqueueWriteBuffer)
 
@@ -45,8 +52,24 @@ int main() {
     // clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&memobj_B);
     // clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&memobj_C);
 
+	int n = 1024;
+	float* host_input = (float*)malloc(sizeof(float) * n);
+	for (int i = 0; i < n; ++i) {
+		if (n&1) {
+			host_input[i] = 1.0;
+		} else {
+			host_input[i] = -1.0;
+		}
+	}
+	cl_mem device_input = clCreateBuffer(context, CL_MEM_READ_WRITE, n * sizeof(float), NULL, NULL);
+	clEnqueueWriteBuffer(queue, device_input, CL_TRUE, 0, n * sizeof(float), host_input, 0, NULL, NULL);
+	cl_mem device_output = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * n * sizeof(float), NULL, NULL);
+
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_input);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_output);
+	
     // 7. Configure NDRange and enqueue the kernel
-    size_t global_work_size[] = {1024}; // Example for 1D array of 1024 elements
+    size_t global_work_size[] = {n}; // Example for 1D array of 1024 elements
     clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL); // Execute the kernel
 
     // 8. Synchronize and read results
@@ -55,6 +78,9 @@ int main() {
     // (Omitted for brevity: read results back to host using clEnqueueReadBuffer)
 
     // 9. Cleanup
+	clReleaseMemObject(device_input);
+	clReleaseMemObject(device_output);
+    free(host_input);
     clReleaseKernel(kernel);
     clReleaseProgram(program);
     clReleaseCommandQueue(queue);
