@@ -13,7 +13,7 @@ import (
 func main() {
 	context := clblast.Context{}
 	var err error
-	context.Output, err = os.Create("example.c")
+	context.Output, err = os.Create("avg.c")
 	if err != nil {
 		panic(err)
 	}

@@ -190,16 +190,8 @@ func (context *Context) U(op Unary) func(a Meta, options ...map[string]interface
 
 // Gradient computes the gradient
 func (context *Context) Gradient(set Set, a Meta) (cost V) {
-	mk, err := os.Create("Makefile")
-	if err != nil {
-		panic(err)
-	}
-	defer mk.Close()
-	fmt.Fprintf(mk, `all: *.c
-	gcc -o model *.c -lclblast -lOpenCL
-`)
-
-	fmt.Fprintf(context.Output, `#include <stdio.h>
+	fmt.Fprintf(context.Output, `//go:build ignore
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 	
@@ -235,8 +227,7 @@ void uninit(void) {
 		fmt.Fprintf(context.Output, "\tfree(%s.D);\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `}
-int main(void) {
-	init();
+int gradient(void) {
 	const size_t platform_id = 0;
 	const size_t device_id = 0;
 
@@ -281,7 +272,6 @@ int main(void) {
 		fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
-	uninit();
 	free(platforms);
 	free(devices);
 	clReleaseCommandQueue(queue);
