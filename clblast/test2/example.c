@@ -21,6 +21,14 @@ const char* kernel_source = "__kernel void everett(__global float* input, __glob
 	} else {\n\
 		output[idx2+1] = in;\n\
 	}\n\
+}\n\
+__kernel void everett_d(__global float* cx, __global float* cd, __global float* ad) {\n\
+	const int idx = get_global_id(0);\n\
+	const int idxA = idx&~1;\n\
+	const int idxB = idx|1;\n\
+	if ((cx[idx] != 0) || ((cx[idxA] == 0) && (cx[idxB] == 0))) {\n\
+		ad[idx>>1] += cd[idx];\n\
+	}\n\
 }\n";
 
 int main() {
@@ -61,9 +69,17 @@ int main() {
 			host_input[i] = -1.0;
 		}
 	}
+	float* host_input_d = (float*)calloc(n, sizeof(float));
+	float* host_output = (float*)calloc(2*n, sizeof(float));
+	float* host_output_d = (float*)calloc(2*n, sizeof(float));
 	cl_mem device_input = clCreateBuffer(context, CL_MEM_READ_WRITE, n * sizeof(float), NULL, NULL);
 	clEnqueueWriteBuffer(queue, device_input, CL_TRUE, 0, n * sizeof(float), host_input, 0, NULL, NULL);
+	cl_mem device_input_d = clCreateBuffer(context, CL_MEM_READ_WRITE, n * sizeof(float), NULL, NULL);
+	clEnqueueWriteBuffer(queue, device_input_d, CL_TRUE, 0, n * sizeof(float), host_input_d, 0, NULL, NULL);
 	cl_mem device_output = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * n * sizeof(float), NULL, NULL);
+	clEnqueueWriteBuffer(queue, device_output, CL_TRUE, 0, 2 * n * sizeof(float), host_output, 0, NULL, NULL);
+	cl_mem device_output_d = clCreateBuffer(context, CL_MEM_READ_WRITE, 2 * n * sizeof(float), NULL, NULL);
+	clEnqueueWriteBuffer(queue, device_output_d, CL_TRUE, 0, 2 * n * sizeof(float), host_output_d, 0, NULL, NULL);
 
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_input);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_output);
@@ -75,13 +91,28 @@ int main() {
     // 8. Synchronize and read results
     clFinish(queue); // Ensure execution is complete
 
+	cl_kernel kernel_d = clCreateKernel(program, "everett_d", NULL);
+	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_output);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_output_d);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_input_d);
+	size_t global_work_size_t[] = {2*n}; // Example for 1D array of 1024 elements
+    clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_t, NULL, 0, NULL, NULL); // Execute the kernel
+
+	clFinish(queue);
+
     // (Omitted for brevity: read results back to host using clEnqueueReadBuffer)
 
     // 9. Cleanup
 	clReleaseMemObject(device_input);
+	clReleaseMemObject(device_input_d);
 	clReleaseMemObject(device_output);
+	clReleaseMemObject(device_output_d);
     free(host_input);
+    free(host_input_d);
+    free(host_output);
+    free(host_output_d);
     clReleaseKernel(kernel);
+    clReleaseKernel(kernel_d);
     clReleaseProgram(program);
     clReleaseCommandQueue(queue);
     clReleaseContext(context);
