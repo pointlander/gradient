@@ -24,8 +24,8 @@ const char* kernel_source = "__kernel void everett(__global float* input, __glob
 }\n\
 __kernel void everett_d(__global float* cx, __global float* cd, __global float* ad) {\n\
 	const int idx = get_global_id(0);\n\
-	const int idxA = idx&~1;\n\
-	const int idxB = idx|1;\n\
+	const int idxA = idx&~1U;\n\
+	const int idxB = idx|1U;\n\
 	if ((cx[idx] != 0) || ((cx[idxA] == 0) && (cx[idxB] == 0))) {\n\
 		ad[idx>>1] += cd[idx];\n\
 	}\n\
