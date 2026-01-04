@@ -82,30 +82,81 @@ func (context *Context) NewV(s ...int) V {
 	}
 }
 
+// Everett computes the split reality activation function
+func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := context.NewV(2*a.S[0], a.S[1])
+
+	fmt.Fprintf(context.Output, "\tcl_event event_%d = NULL;\n", node)
+	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		c.N, c.S[0]*c.S[1])
+	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		c.N, c.S[0]*c.S[1])
+	fmt.Fprintf(context.Output, "\tfloat* host_%s_d = (float*)calloc(%d, sizeof(float));\n",
+		c.N, c.S[0]*c.S[1])
+	fmt.Fprintf(context.Output, "\tclEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), host_%s_d, 0, NULL, NULL);",
+		c.N, c.S[0]*c.S[1], c.N)
+	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "everett", NULL);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
+	size_t global_work_size_%d[] = {%d};
+	cl_int status_%d = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size_%d, NULL, 0, NULL, &event_%d);
+	if (status_%d == CL_SUCCESS) {
+		clWaitForEvents(1, &event_%d);
+		clReleaseEvent(event_%d);
+		event_%d = NULL;
+	}
+`, a.N, c.N, node, a.S[0]*a.S[1], node, node, node, node, node, node, node)
+
+	if k(&c) {
+		return true
+	}
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_d = clCreateKernel(program, "everett_d", NULL);
+	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 2, sizeof(cl_mem), (void*)&device_%s_d);
+	size_t global_work_size_%d_a[] = {%d};
+	status_%d = clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_%d_a, NULL, 0, NULL, &event_%d);
+	if (status_%d == CL_SUCCESS) {
+		clWaitForEvents(1, &event_%d);
+		clReleaseEvent(event_%d);
+		event_%d = NULL;
+	}
+`, c.N, c.N, a.N, node, c.S[0]*c.S[1], node, node, node, node, node, node, node)
+
+	fmt.Fprintf(context.Output, "\tfree(host_%s_d);\n", c.N)
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
+	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", c.N)
+	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", c.N)
+
+	return false
+}
+
 // Avg computes the average of the tensor
 func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(1)
 
-	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	fmt.Fprintf(context.Output, "\tcl_event event_%d = NULL;\n", node)
 	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tCLBlastStatusCode status = CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event);\n",
-		c.S[0]*c.S[1], c.N, a.N)
+	fmt.Fprintf(context.Output, "\tCLBlastStatusCode status = CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event_%d);\n",
+		c.S[0]*c.S[1], c.N, a.N, node)
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
+		clWaitForEvents(1, &event_%d);
+		clReleaseEvent(event_%d);
+		event_%d = NULL;
 	}
-`)
+`, node, node, node)
 
 	fmt.Fprintf(context.Output, "\tfloat alpha = %ff;\n", 1/float32(c.S[0]*c.S[1]))
-	fmt.Fprintf(context.Output, "\tstatus = CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event);\n", c.N)
+	fmt.Fprintf(context.Output, "\tstatus = CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event_%d);\n", c.N, node)
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
+		clWaitForEvents(1, &event_%d);
+		clReleaseEvent(event_%d);
+		event_%d = NULL;
 	}
-`)
+`, node, node, node)
 
 	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 		c.N, c.S[0]*c.S[1])
@@ -118,13 +169,13 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 		return true
 	}
 
-	fmt.Fprintf(context.Output, "\tstatus = CLBlastSaxpy(1, alpha, device_%s_d, 0, 0, device_%s_d, 0, 1, &queue, &event);\n", c.N, a.N)
+	fmt.Fprintf(context.Output, "\tstatus = CLBlastSaxpy(1, alpha, device_%s_d, 0, 0, device_%s_d, 0, 1, &queue, &event_%d);\n", c.N, a.N, node)
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
+		clWaitForEvents(1, &event_%d);
+		clReleaseEvent(event_%d);
+		event_%d = NULL;
 	}
-`)
+`, node, node, node)
 
 	fmt.Fprintf(context.Output, "\tfree(host_%s_d);\n", c.N)
 	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", c.N)
@@ -200,8 +251,33 @@ func (context *Context) Gradient(set Set, a Meta) (cost V) {
 
 #include <clblast_c.h>
 
+const char* kernel_source = "__kernel void everett(__global float* input, __global float* output) {\n\
+    const int idx = get_global_id(0);\n\
+    const int idx2 = 2*idx;\n\
+	const float in = input[idx];\n\
+	if (in < 0.0f) {\n\
+		output[idx2] = 0.0f;\n\
+	} else {\n\
+		output[idx2] = in;\n\
+	}\n\
+	if (in > 0.0f) {\n\
+		output[idx2+1] = 0.0f;\n\
+	} else {\n\
+		output[idx2+1] = in;\n\
+	}\n\
+}\n\
+__kernel void everett_d(__global float* cx, __global float* cd, __global float* ad) {\n\
+	const int idx = get_global_id(0);\n\
+	const int idxA = idx&~1U;\n\
+	const int idxB = idx|1U;\n\
+	if ((cx[idx] != 0) || ((cx[idxA] == 0) && (cx[idxB] == 0))) {\n\
+		ad[idx>>1] += cd[idx];\n\
+	}\n\
+}\n";
+
 cl_context context;
 cl_command_queue queue;
+cl_program program;
 
 struct V {
 	int W;
@@ -235,6 +311,9 @@ struct V {
 
 	context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
 	queue = clCreateCommandQueue(context, device, 0, NULL);
+	size_t kernel_source_length = strlen(kernel_source);
+	program = clCreateProgramWithSource(context, 1, (const char**)&kernel_source, &kernel_source_length, NULL);
+	clBuildProgram(program, 1, &device, NULL, NULL, NULL);
 
 	free(platforms);
 	free(devices);	
@@ -252,7 +331,8 @@ void uninit(void) {
 		fmt.Fprintf(context.Output, "\tfree(%s.X);\n", value.N)
 		fmt.Fprintf(context.Output, "\tfree(%s.D);\n", value.N)
 	}
-	fmt.Fprintf(context.Output, `	clReleaseCommandQueue(queue);
+	fmt.Fprintf(context.Output, `	clReleaseProgram(program);
+	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
 }
 int gradient(void) {
