@@ -200,6 +200,9 @@ func (context *Context) Gradient(set Set, a Meta) (cost V) {
 
 #include <clblast_c.h>
 
+cl_context context;
+cl_command_queue queue;
+
 struct V {
 	int W;
 	int H;
@@ -213,22 +216,7 @@ struct V {
 
 	fmt.Fprintf(context.Output, `void init(void) {
 `)
-	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\t%s.W = %d;\n", value.N, value.S[0])
-		fmt.Fprintf(context.Output, "\t%s.H = %d;\n", value.N, value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.X = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.D = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
-	}
-	fmt.Fprintf(context.Output, `}
-void uninit(void) {
-`)
-	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\tfree(%s.X);\n", value.N)
-		fmt.Fprintf(context.Output, "\tfree(%s.D);\n", value.N)
-	}
-	fmt.Fprintf(context.Output, `}
-int gradient(void) {
-	const size_t platform_id = 0;
+	fmt.Fprintf(context.Output, `	const size_t platform_id = 0;
 	const size_t device_id = 0;
 
 	cl_uint num_platforms;
@@ -245,8 +233,29 @@ int gradient(void) {
 	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);
 	cl_device_id device = devices[device_id];
 
-	cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
-	cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
+	context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
+	queue = clCreateCommandQueue(context, device, 0, NULL);
+
+	free(platforms);
+	free(devices);	
+`)
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "\t%s.W = %d;\n", value.N, value.S[0])
+		fmt.Fprintf(context.Output, "\t%s.H = %d;\n", value.N, value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.X = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.D = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
+	}
+	fmt.Fprintf(context.Output, `}
+void uninit(void) {
+`)
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "\tfree(%s.X);\n", value.N)
+		fmt.Fprintf(context.Output, "\tfree(%s.D);\n", value.N)
+	}
+	fmt.Fprintf(context.Output, `	clReleaseCommandQueue(queue);
+	clReleaseContext(context);
+}
+int gradient(void) {
 `)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
@@ -272,10 +281,6 @@ int gradient(void) {
 		fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
-	free(platforms);
-	free(devices);
-	clReleaseCommandQueue(queue);
-	clReleaseContext(context);	
 }
 `)
 	return
