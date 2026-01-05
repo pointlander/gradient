@@ -91,15 +91,18 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 		c.N, c.S[0]*c.S[1])
 	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tfloat* host_%s_d = (float*)calloc(%d, sizeof(float));\n",
-		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tclEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), host_%s_d, 0, NULL, NULL);",
-		c.N, c.S[0]*c.S[1], c.N)
+	fmt.Fprintf(context.Output, `	cl_int status_%d = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d, 0, NULL, &event_%d);
+	if (status_%d == CL_SUCCESS) {
+		clWaitForEvents(1, &event_%d);
+		clReleaseEvent(event_%d);
+		event_%d = NULL;
+	}
+`, node, c.N, c.S[0]*c.S[1], node, node, node, node, node)
 	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "everett", NULL);
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
 	size_t global_work_size_%d[] = {%d};
-	cl_int status_%d = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size_%d, NULL, 0, NULL, &event_%d);
+	status_%d = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size_%d, NULL, 0, NULL, &event_%d);
 	if (status_%d == CL_SUCCESS) {
 		clWaitForEvents(1, &event_%d);
 		clReleaseEvent(event_%d);
@@ -124,7 +127,6 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	}
 `, c.N, c.N, a.N, node, c.S[0]*c.S[1], node, node, node, node, node, node, node)
 
-	fmt.Fprintf(context.Output, "\tfree(host_%s_d);\n", c.N)
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
 	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", c.N)
@@ -274,6 +276,9 @@ __kernel void everett_d(__global float* cx, __global float* cd, __global float* 
 		ad[idx>>1] += cd[idx];\n\
 	}\n\
 }\n";
+
+float pattern_value = 0.0f;
+size_t pattern_size = sizeof(float);
 
 cl_context context;
 cl_command_queue queue;
