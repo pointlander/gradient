@@ -86,29 +86,29 @@ func (context *Context) NewV(s ...int) V {
 func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(2*a.S[0], a.S[1])
 
-	fmt.Fprintf(context.Output, "\tcl_event event_%d = NULL;\n", node)
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 		c.N, c.S[0]*c.S[1])
 	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, `	cl_int status_%d = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d, 0, NULL, &event_%d);
-	if (status_%d == CL_SUCCESS) {
-		clWaitForEvents(1, &event_%d);
-		clReleaseEvent(event_%d);
-		event_%d = NULL;
+	fmt.Fprintf(context.Output, `	cl_int status = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d, 0, NULL, &event);
+	if (status == CL_SUCCESS) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
 	}
-`, node, c.N, c.S[0]*c.S[1], node, node, node, node, node)
+`, c.N, c.S[0]*c.S[1])
 	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "everett", NULL);
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
-	size_t global_work_size_%d[] = {%d};
-	status_%d = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size_%d, NULL, 0, NULL, &event_%d);
-	if (status_%d == CL_SUCCESS) {
-		clWaitForEvents(1, &event_%d);
-		clReleaseEvent(event_%d);
-		event_%d = NULL;
+	size_t global_work_size[] = {%d};
+	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event);
+	if (status == CL_SUCCESS) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
 	}
-`, a.N, c.N, node, a.S[0]*a.S[1], node, node, node, node, node, node, node)
+`, a.N, c.N, a.S[0]*a.S[1])
 
 	if k(&c) {
 		return true
@@ -118,14 +118,14 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s);
 	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s_d);
 	clSetKernelArg(kernel_d, 2, sizeof(cl_mem), (void*)&device_%s_d);
-	size_t global_work_size_%d_a[] = {%d};
-	status_%d = clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_%d_a, NULL, 0, NULL, &event_%d);
-	if (status_%d == CL_SUCCESS) {
-		clWaitForEvents(1, &event_%d);
-		clReleaseEvent(event_%d);
-		event_%d = NULL;
+	size_t global_work_size_a[] = {%d};
+	status = clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_a, NULL, 0, NULL, &event);
+	if (status == CL_SUCCESS) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
 	}
-`, c.N, c.N, a.N, node, c.S[0]*c.S[1], node, node, node, node, node, node, node)
+`, c.N, c.N, a.N, c.S[0]*c.S[1])
 
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
@@ -139,26 +139,26 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(1)
 
-	fmt.Fprintf(context.Output, "\tcl_event event_%d = NULL;\n", node)
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tCLBlastStatusCode status = CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event_%d);\n",
-		c.S[0]*c.S[1], c.N, a.N, node)
+	fmt.Fprintf(context.Output, "\tCLBlastStatusCode status = CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event);\n",
+		c.S[0]*c.S[1], c.N, a.N)
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event_%d);
-		clReleaseEvent(event_%d);
-		event_%d = NULL;
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
 	}
-`, node, node, node)
+`)
 
 	fmt.Fprintf(context.Output, "\tfloat alpha = %ff;\n", 1/float32(c.S[0]*c.S[1]))
-	fmt.Fprintf(context.Output, "\tstatus = CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event_%d);\n", c.N, node)
+	fmt.Fprintf(context.Output, "\tstatus = CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event);\n", c.N)
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event_%d);
-		clReleaseEvent(event_%d);
-		event_%d = NULL;
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
 	}
-`, node, node, node)
+`)
 
 	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 		c.N, c.S[0]*c.S[1])
@@ -171,13 +171,13 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 		return true
 	}
 
-	fmt.Fprintf(context.Output, "\tstatus = CLBlastSaxpy(1, alpha, device_%s_d, 0, 0, device_%s_d, 0, 1, &queue, &event_%d);\n", c.N, a.N, node)
+	fmt.Fprintf(context.Output, "\tstatus = CLBlastSaxpy(1, alpha, device_%s_d, 0, 0, device_%s_d, 0, 1, &queue, &event);\n", c.N, a.N)
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event_%d);
-		clReleaseEvent(event_%d);
-		event_%d = NULL;
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
 	}
-`, node, node, node)
+`)
 
 	fmt.Fprintf(context.Output, "\tfree(host_%s_d);\n", c.N)
 	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", c.N)
@@ -195,7 +195,10 @@ func (context *Context) Op(op Operation) func(a ...Meta) Meta {
 			var call func(a []Meta, b []*V) (bool, Continuation)
 			call = func(a []Meta, b []*V) (bool, Continuation) {
 				if len(a) == 0 {
-					return op(k, node, b...), nil
+					fmt.Fprintf(context.Output, "\t{\n")
+					c := op(k, node, b...)
+					fmt.Fprintf(context.Output, "\t}\n")
+					return c, nil
 				}
 				derivatives := false
 				continuation := a[0](func(c *V) bool {
@@ -219,7 +222,9 @@ func (context *Context) B(op Binary) func(a, b Meta, options ...map[string]inter
 			return a(func(a *V) bool {
 				derivatives := false
 				b(func(b *V) bool {
+					fmt.Fprintf(context.Output, "\t{\n")
 					derivatives = op(k, node, a, b, options...)
+					fmt.Fprintf(context.Output, "\t}\n")
 					return derivatives
 				})
 				return derivatives
@@ -235,7 +240,10 @@ func (context *Context) U(op Unary) func(a Meta, options ...map[string]interface
 		context.Node++
 		return func(k Continuation) Continuation {
 			return a(func(b *V) bool {
-				return op(k, node, b, options...)
+				fmt.Fprintf(context.Output, "\t{\n")
+				derivatives := op(k, node, b, options...)
+				fmt.Fprintf(context.Output, "\t}\n")
+				return derivatives
 			})
 		}
 	}
