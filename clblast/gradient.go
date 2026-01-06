@@ -82,33 +82,53 @@ func (context *Context) NewV(s ...int) V {
 	}
 }
 
+// Allocate generates the code which allocates the variable
+func (v *V) Allocate(output *os.File) {
+	fmt.Fprintf(output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, `	cl_int status_a = clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d, 0, NULL, &event);
+		if (status_a == CL_SUCCESS) {
+			clWaitForEvents(1, &event);
+			clReleaseEvent(event);
+			event = NULL;
+		}
+`, v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, `	status_a = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d, 0, NULL, &event);
+	if (status_a == CL_SUCCESS) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
+	}
+`, v.N, v.S[0]*v.S[1])
+}
+
+// Free generates the code to free the variable
+func (v *V) Free(output *os.File) {
+	fmt.Fprintf(output, "\tclReleaseMemObject(device_%s_d);\n", v.N)
+	fmt.Fprintf(output, "\tclReleaseMemObject(device_%s);\n", v.N)
+}
+
 // Everett computes the split reality activation function
 func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(2*a.S[0], a.S[1])
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
-	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
-		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
-		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, `	cl_int status = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d, 0, NULL, &event);
-	if (status == CL_SUCCESS) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
-`, c.N, c.S[0]*c.S[1])
+	c.Allocate(context.Output)
+	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "everett", NULL);
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
 	size_t global_work_size[] = {%d};
-	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event);
+	cl_int status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event);
 	if (status == CL_SUCCESS) {
 		clWaitForEvents(1, &event);
 		clReleaseEvent(event);
 		event = NULL;
 	}
 `, a.N, c.N, a.S[0]*a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
 
 	if k(&c) {
 		return true
@@ -126,11 +146,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 		event = NULL;
 	}
 `, c.N, c.N, a.N, c.S[0]*c.S[1])
-
-	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
-	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", c.N)
-	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", c.N)
 
 	return false
 }
@@ -140,8 +156,8 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	c := context.NewV(1)
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
-	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
-		c.N, c.S[0]*c.S[1])
+	c.Allocate(context.Output)
+	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, "\tCLBlastStatusCode status = CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event);\n",
 		c.S[0]*c.S[1], c.N, a.N)
 	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
@@ -160,13 +176,6 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	}
 `)
 
-	fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
-		c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tfloat* host_%s_d = (float*)calloc(1, sizeof(float));\n",
-		c.N)
-	fmt.Fprintf(context.Output, "clEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, 1 * sizeof(float), host_%s_d, 0, NULL, NULL);",
-		c.N, c.N)
-
 	if k(&c) {
 		return true
 	}
@@ -178,11 +187,6 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 		event = NULL;
 	}
 `)
-
-	fmt.Fprintf(context.Output, "\tfree(host_%s_d);\n", c.N)
-	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", c.N)
-	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", c.N)
-
 	return false
 }
 
