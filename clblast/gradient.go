@@ -84,24 +84,40 @@ func (context *Context) NewV(s ...int) V {
 
 // Allocate generates the code which allocates the variable
 func (v *V) Allocate(output *os.File) {
-	fmt.Fprintf(output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+	fmt.Fprintf(output, "\tcl_int err = 0;\n")
+	fmt.Fprintf(output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 		v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
-		v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, `	cl_int status_a = clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d, 0, NULL, &event);
-		if (status_a == CL_SUCCESS) {
-			clWaitForEvents(1, &event);
-			clReleaseEvent(event);
-			event = NULL;
-		}
-`, v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, `	status_a = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d, 0, NULL, &event);
-	if (status_a == CL_SUCCESS) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
+	fmt.Fprintf(output, `	if (err != CL_SUCCESS) {
+		printf("error a: %%s\n", getErrorString(err));
+		exit(1);
 	}
-`, v.N, v.S[0]*v.S[1])
+`)
+	fmt.Fprintf(output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
+		v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, `	if (err != CL_SUCCESS) {
+		printf("error b: %%s\n", getErrorString(err));
+		exit(1);
+	}
+`)
+	fmt.Fprintf(output, "\tcl_event event_a = NULL;\n")
+	fmt.Fprintf(output, `	cl_int status_a = clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event_a);
+	if (status_a != CL_SUCCESS) {
+		printf("error a: %s %%s", getErrorString(status_a));
+		exit(1);
+	}
+`, v.N, v.S[0]*v.S[1], v.N)
+	fmt.Fprintf(output, "\tcl_event event_b = NULL;\n")
+	fmt.Fprintf(output, `	status_a = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event_b);
+	if (status_a != CL_SUCCESS) {
+		printf("error b: %s %%s\n", getErrorString(status_a));
+		exit(1);
+	}
+`, v.N, v.S[0]*v.S[1], v.N)
+	fmt.Fprintf(output, "\tcl_event events[2] = {event_a, event_b};\n")
+	fmt.Fprintf(output, `	clWaitForEvents(2, events);
+	clReleaseEvent(event_a);
+	clReleaseEvent(event_b);
+`)
 }
 
 // Free generates the code to free the variable
@@ -289,6 +305,25 @@ __kernel void everett_d(__global float* cx, __global float* cd, __global float* 
 	}\n\
 }\n";
 
+const char* getErrorString(cl_int error) {
+    switch (error) {
+		case CL_SUCCESS: return "CL_SUCCESS";
+		case CL_INVALID_COMMAND_QUEUE: return "CL_INVALID_COMMAND_QUEUE";
+		case CL_INVALID_CONTEXT: return "CL_INVALID_CONTEXT";
+		case CL_INVALID_MEM_OBJECT: return "CL_INVALID_MEM_OBJECT";
+		case CL_INVALID_VALUE: return "CL_INVALID_VALUE";
+		case CL_INVALID_EVENT_WAIT_LIST: return "CL_INVALID_EVENT_WAIT_LIST";
+		case CL_MISALIGNED_SUB_BUFFER_OFFSET: return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
+		case CL_MEM_OBJECT_ALLOCATION_FAILURE: return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+		case CL_OUT_OF_RESOURCES: return "CL_OUT_OF_RESOURCES";
+		case CL_OUT_OF_HOST_MEMORY: return "CL_OUT_OF_HOST_MEMORY";
+		case CL_INVALID_OPERATION: return "CL_INVALID_OPERATION";
+		// Add other common OpenCL error codes if necessary
+		default: return "Unknown OpenCL Error";
+	}
+}
+
+
 float pattern_value = 0.0f;
 size_t pattern_size = sizeof(float);
 
@@ -354,15 +389,28 @@ void uninit(void) {
 }
 int gradient(void) {
 `)
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 			value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tclEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, NULL);\n",
+		fmt.Fprintf(context.Output, "\tcl_int status = clEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, &event);\n",
 			value.N, value.S[0]*value.S[1], value.N)
+		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
+	}
+`)
 		fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
 			value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tclEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, NULL);\n",
+		fmt.Fprintf(context.Output, "\tstatus = clEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, &event);\n",
 			value.N, value.S[0]*value.S[1], value.N)
+		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
+	}
+`)
 	}
 	a(func(a *V) bool {
 		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
