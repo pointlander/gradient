@@ -366,6 +366,37 @@ const char* getErrorString(cl_int error) {
 		case CL_INVALID_COMPILER_OPTIONS: return "CL_INVALID_COMPILER_OPTIONS";
 		case CL_INVALID_LINKER_OPTIONS: return "CL_INVALID_LINKER_OPTIONS";
 		case CL_INVALID_DEVICE_PARTITION_COUNT: return "CL_INVALID_LINKER_OPTIONS";
+
+		case CLBlastNotImplemented: return "CLBlastNotImplemented";
+		case CLBlastInvalidMatrixA: return "CLBlastInvalidMatrixA";
+		case CLBlastInvalidMatrixB: return "CLBlastInvalidMatrixB";
+		case CLBlastInvalidMatrixC: return "CLBlastInvalidMatrixC";
+		case CLBlastInvalidVectorX: return "CLBlastInvalidVectorX";
+		case CLBlastInvalidVectorY: return "CLBlastInvalidVectorY";
+		case CLBlastInvalidDimension: return "CLBlastInvalidDimension";
+		case CLBlastInvalidLeadDimA: return "CLBlastInvalidLeadDimA";
+		case CLBlastInvalidLeadDimB: return "CLBlastInvalidLeadDimB";
+		case CLBlastInvalidLeadDimC: return "CLBlastInvalidLeadDimC";
+		case CLBlastInvalidIncrementX: return "CLBlastInvalidIncrementX";
+		case CLBlastInvalidIncrementY: return "CLBlastInvalidIncrementY";
+		case CLBlastInsufficientMemoryA: return "CLBlastInsufficientMemoryA";
+		case CLBlastInsufficientMemoryB: return "CLBlastInsufficientMemoryB";
+		case CLBlastInsufficientMemoryC: return "CLBlastInsufficientMemoryC";
+		case CLBlastInsufficientMemoryX: return "CLBlastInsufficientMemoryX";
+		case CLBlastInsufficientMemoryY: return "CLBlastInsufficientMemoryY";
+
+		case CLBlastInsufficientMemoryTemp: return "CLBlastInsufficientMemoryTemp";
+		case CLBlastInvalidBatchCount: return "CLBlastInvalidBatchCount";
+		case CLBlastInvalidOverrideKernel: return "CLBlastInvalidOverrideKernel";
+		case CLBlastMissingOverrideParameter: return "CLBlastMissingOverrideParameter";
+		case CLBlastInvalidLocalMemUsage: return "CLBlastInvalidLocalMemUsage";
+		case CLBlastNoHalfPrecision: return "CLBlastNoHalfPrecision";
+		case CLBlastNoDoublePrecision: return "CLBlastNoDoublePrecision";
+		case CLBlastInvalidVectorScalar: return "CLBlastInvalidVectorScalar";
+		case CLBlastInsufficientMemoryScalar: return "CLBlastInsufficientMemoryScalar";
+		case CLBlastDatabaseError: return "CLBlastDatabaseError";
+		case CLBlastUnknownError: return "CLBlastUnknownError";
+		case CLBlastUnexpectedError: return "CLBlastUnexpectedError";
 		default: return "Unknown OpenCL Error";
 	}
 }
