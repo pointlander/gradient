@@ -87,32 +87,16 @@ func (v *V) Allocate(output *os.File) {
 	fmt.Fprintf(output, "\tcl_int err = 0;\n")
 	fmt.Fprintf(output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 		v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, `	if (err != CL_SUCCESS) {
-		printf("error a: %%s\n", getErrorString(err));
-		exit(1);
-	}
-`)
+	fmt.Fprintf(output, "CHECK(err);\n")
 	fmt.Fprintf(output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 		v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, `	if (err != CL_SUCCESS) {
-		printf("error b: %%s\n", getErrorString(err));
-		exit(1);
-	}
-`)
+	fmt.Fprintf(output, "CHECK(err);\n")
 	fmt.Fprintf(output, "\tcl_event event_a = NULL;\n")
-	fmt.Fprintf(output, `	cl_int status_a = clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event_a);
-	if (status_a != CL_SUCCESS) {
-		printf("error a: %s %%s", getErrorString(status_a));
-		exit(1);
-	}
-`, v.N, v.S[0]*v.S[1], v.N)
+	fmt.Fprintf(output, "\tCHECK(clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event_a));\n",
+		v.N, v.S[0]*v.S[1])
 	fmt.Fprintf(output, "\tcl_event event_b = NULL;\n")
-	fmt.Fprintf(output, `	status_a = clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event_b);
-	if (status_a != CL_SUCCESS) {
-		printf("error b: %s %%s\n", getErrorString(status_a));
-		exit(1);
-	}
-`, v.N, v.S[0]*v.S[1], v.N)
+	fmt.Fprintf(output, "\tCHECK(clEnqueueFillBuffer(queue, device_%s_d, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event_b));\n",
+		v.N, v.S[0]*v.S[1])
 	fmt.Fprintf(output, "\tcl_event events[2] = {event_a, event_b};\n")
 	fmt.Fprintf(output, `	clWaitForEvents(2, events);
 	clReleaseEvent(event_a);
@@ -137,12 +121,10 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
 	size_t global_work_size[] = {%d};
-	cl_int status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event);
-	if (status == CL_SUCCESS) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
 `, a.N, c.N, a.S[0]*a.S[1])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
 
@@ -155,12 +137,10 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s_d);
 	clSetKernelArg(kernel_d, 2, sizeof(cl_mem), (void*)&device_%s_d);
 	size_t global_work_size_a[] = {%d};
-	status = clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_a, NULL, 0, NULL, &event);
-	if (status == CL_SUCCESS) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_a, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
 `, c.N, c.N, a.N, c.S[0]*c.S[1])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
 
@@ -174,35 +154,54 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
-	fmt.Fprintf(context.Output, "\tCLBlastStatusCode status = CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event);\n",
+	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event));\n",
 		c.S[0]*c.S[1], c.N, a.N)
-	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
 `)
 
 	fmt.Fprintf(context.Output, "\tfloat alpha = %ff;\n", 1/float32(c.S[0]*c.S[1]))
-	fmt.Fprintf(context.Output, "\tstatus = CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event);\n", c.N)
-	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event));\n", c.N)
+	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
 `)
 
 	if k(&c) {
 		return true
 	}
 
-	fmt.Fprintf(context.Output, "\tstatus = CLBlastSaxpy(1, alpha, device_%s_d, 0, 0, device_%s_d, 0, 1, &queue, &event);\n", c.N, a.N)
-	fmt.Fprintf(context.Output, `	if (status == CLBlastSuccess) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
+		"I", a.S[0]*a.S[1])
+	fmt.Fprintf(context.Output, "CHECK(err);\n")
+	fmt.Fprintf(context.Output, `	float pattern_value = 1.0f;
+	size_t pattern_size = sizeof(float);
 `)
+	fmt.Fprintf(context.Output, "\tCHECK(clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event));\n",
+		"I", a.S[0]*a.S[1])
+	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`)
+	fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", c.N, c.S[0]*c.S[1])
+	fmt.Fprintf(context.Output, "\tCHECK(clEnqueueReadBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, &event));\n",
+		c.N, c.S[0]*c.S[1], c.N)
+	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`)
+
+	fmt.Fprintf(context.Output, "\talpha = alpha*host_%s[0];\n", c.N)
+	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSaxpy(%d, alpha, device_%s, 0, 1, device_%s_d, 0, 1, &queue, &event));\n",
+		a.S[0]*a.S[1], "I", a.N)
+	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`)
+
+	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", "I")
+	fmt.Fprintf(context.Output, "\tfree(host_%s);\n", c.N)
 	return false
 }
 
@@ -401,6 +400,16 @@ const char* getErrorString(cl_int error) {
 	}
 }
 
+void _check(const char* file, int line, const char* func, cl_int err) {
+	if (err == CL_SUCCESS) {
+		return;
+	}
+	printf("[ERROR] %%s:%%d: in function %%s - %%s\n", file, line, func, getErrorString(err));
+	exit(1);
+}
+
+#define CHECK(err) _check(__FILE__, __LINE__, __func__, err)
+
 
 float pattern_value = 0.0f;
 size_t pattern_size = sizeof(float);
@@ -491,10 +500,12 @@ int gradient(void) {
 `)
 	}
 	a(func(a *V) bool {
+		fmt.Fprintf(context.Output, "\t{\n")
 		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
 		fmt.Fprintf(context.Output, "\tclEnqueueReadBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, NULL);\n",
 			a.N, a.S[0]*a.S[1], a.N)
 		fmt.Fprintf(context.Output, "\tfree(host_%s);\n", a.N)
+		fmt.Fprintf(context.Output, "\t}\n")
 		return false
 	})
 	for _, value := range set.Weights {
