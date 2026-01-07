@@ -433,26 +433,33 @@ struct V {
 `)
 	fmt.Fprintf(context.Output, `	const size_t platform_id = 0;
 	const size_t device_id = 0;
-
+	cl_int err = 0;
+	
 	cl_uint num_platforms;
 	clGetPlatformIDs(0, NULL, &num_platforms);
 	printf("%%d\n", num_platforms);
 	cl_platform_id* platforms = (cl_platform_id*)calloc(num_platforms, sizeof(cl_platform_id));
-	clGetPlatformIDs(num_platforms, platforms, NULL);
+	CHECK(clGetPlatformIDs(num_platforms, platforms, NULL));
 	cl_platform_id platform = platforms[platform_id];
 
 	cl_uint num_devices;
 	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);
 	printf("%%d\n", num_devices);
 	cl_device_id* devices = (cl_device_id*)calloc(num_devices, sizeof(cl_device_id));
-	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);
+	CHECK(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL));
 	cl_device_id device = devices[device_id];
 
-	context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
-	queue = clCreateCommandQueue(context, device, 0, NULL);
+	context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
+	CHECK(err);
+	err = 0;
+	queue = clCreateCommandQueue(context, device, 0, &err);
+	CHECK(err);
+	err = 0;
 	size_t kernel_source_length = strlen(kernel_source);
-	program = clCreateProgramWithSource(context, 1, (const char**)&kernel_source, &kernel_source_length, NULL);
-	clBuildProgram(program, 1, &device, NULL, NULL, NULL);
+	program = clCreateProgramWithSource(context, 1, (const char**)&kernel_source, &kernel_source_length, &err);
+	CHECK(err);
+	err = 0;
+	CHECK(clBuildProgram(program, 1, &device, NULL, NULL, NULL));
 
 	free(platforms);
 	free(devices);	
@@ -477,9 +484,12 @@ void uninit(void) {
 int gradient(void) {
 `)
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	fmt.Fprintf(context.Output, "\tcl_int err = 0;\n")
 	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 			value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(err);\n")
+		fmt.Fprintf(context.Output, "\terr = 0;\n")
 		fmt.Fprintf(context.Output, "\tcl_int status = clEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, &event);\n",
 			value.N, value.S[0]*value.S[1], value.N)
 		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
@@ -488,8 +498,10 @@ int gradient(void) {
 		event = NULL;
 	}
 `)
-		fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, NULL);\n",
+		fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 			value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(err);\n")
+		fmt.Fprintf(context.Output, "\terr = 0;\n")
 		fmt.Fprintf(context.Output, "\tstatus = clEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, &event);\n",
 			value.N, value.S[0]*value.S[1], value.N)
 		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
