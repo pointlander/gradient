@@ -110,6 +110,48 @@ func (v *V) Free(output *os.File) {
 	fmt.Fprintf(output, "\tclReleaseMemObject(device_%s);\n", v.N)
 }
 
+// Mul multiplies two tensors
+func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
+	c := context.NewV(a.S[1], a.S[1])
+
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	c.Allocate(context.Output)
+	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "mul", NULL);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&device_%s);
+	cl_int width = %d;
+	clSetKernelArg(kernel, 3, sizeof(cl_int), (void*)&width);
+	size_t global_work_size[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, a.N, b.N, c.N, a.S[0], a.S[1], b.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
+
+	if k(&c) {
+		return true
+	}
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_d = clCreateKernel(program, "mul_d", NULL);
+	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel_d, 2, sizeof(cl_mem), (void*)&device_%s_d);
+	cl_int width_d = %d;
+	clSetKernelArg(kernel_d, 3, sizeof(cl_int), (void*)&width_d);
+	size_t global_work_size_d[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_d, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+	`, c.N, b.N, a.N, a.S[0], a.S[1], b.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
+
+	return false
+}
+
 // Everett computes the split reality activation function
 func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(2*a.S[0], a.S[1])
@@ -302,6 +344,25 @@ __kernel void everett_d(__global float* cx, __global float* cd, __global float* 
 	if ((cx[idx] != 0) || ((cx[idxA] == 0) && (cx[idxB] == 0))) {\n\
 		ad[idx>>1] += cd[idx];\n\
 	}\n\
+}\n\
+__kernel void mul(__global float* a, __global float* b, __global float* c, const int width) {\n\
+	int aw = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	int bi = get_global_id(1);\n\
+	float sum = 0;\n\
+	for (int i = 0; i < width; i++) {\n\
+		sum += a[ai*width+i] * b[bi*width+i];\n\
+	}\n\
+	c[bi*aw + ai];\n\
+}\n\
+__kernel void mul_d(__global float* cd, __global float* b, __global float* ad, const int width) {\n\
+	int rows = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	int bi = get_global_id(1);\n\
+	float cc = cd[ai+bi*rows];\n\
+	for (int i = 0; i < width; i++) {\n\
+		ad[ai*width+i] += cc*b[bi*width+i];\n\
+	}\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
@@ -459,7 +520,19 @@ struct V {
 	program = clCreateProgramWithSource(context, 1, (const char**)&kernel_source, &kernel_source_length, &err);
 	CHECK(err);
 	err = 0;
-	CHECK(clBuildProgram(program, 1, &device, NULL, NULL, NULL));
+	err = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
+	if (err != 0) {
+		size_t log_size = 0;
+		cl_int err = 0;
+		err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+		CHECK(err);
+		char* log = (char*)calloc(log_size, 1);
+		err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, log, NULL);
+		CHECK(err);
+		printf("build log: %%s\n", log);
+		free(log);
+	}
+	CHECK(err);
 
 	free(platforms);
 	free(devices);	
