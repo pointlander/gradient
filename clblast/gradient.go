@@ -135,19 +135,33 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 		return true
 	}
 
-	fmt.Fprintf(context.Output, `	cl_kernel kernel_d = clCreateKernel(program, "mul_d", NULL);
-	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s_d);
-	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s);
-	clSetKernelArg(kernel_d, 2, sizeof(cl_mem), (void*)&device_%s_d);
-	cl_int width_d = %d;
-	clSetKernelArg(kernel_d, 3, sizeof(cl_int), (void*)&width_d);
-	size_t global_work_size_d[] = {%d, %d};
-	CHECK(clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_d, NULL, 0, NULL, &event));
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_ad = clCreateKernel(program, "mul_ad", NULL);
+	clSetKernelArg(kernel_ad, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_ad, 1, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel_ad, 2, sizeof(cl_mem), (void*)&device_%s_d);
+	cl_int width_ad = %d;
+	clSetKernelArg(kernel_ad, 3, sizeof(cl_int), (void*)&width_ad);
+	size_t global_work_size_ad[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_ad, 1, NULL, global_work_size_ad, NULL, 0, NULL, &event));
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
 	`, c.N, b.N, a.N, a.S[0], a.S[1], b.S[1])
-	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_ad);\n")
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_bd = clCreateKernel(program, "mul_bd", NULL);
+	clSetKernelArg(kernel_bd, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_bd, 1, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel_bd, 2, sizeof(cl_mem), (void*)&device_%s_d);
+	cl_int width_bd = %d;
+	clSetKernelArg(kernel_bd, 3, sizeof(cl_int), (void*)&width_bd);
+	size_t global_work_size_bd[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_bd, 1, NULL, global_work_size_bd, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+	`, c.N, a.N, b.N, a.S[0], a.S[1], b.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_bd);\n")
 
 	return false
 }
@@ -355,13 +369,22 @@ __kernel void mul(__global float* a, __global float* b, __global float* c, const
 	}\n\
 	c[bi*aw + ai];\n\
 }\n\
-__kernel void mul_d(__global float* cd, __global float* b, __global float* ad, const int width) {\n\
+__kernel void mul_ad(__global float* cd, __global float* b, __global float* ad, const int width) {\n\
 	int rows = get_global_size(0);\n\
 	int ai = get_global_id(0);\n\
 	int bi = get_global_id(1);\n\
 	float cc = cd[ai+bi*rows];\n\
 	for (int i = 0; i < width; i++) {\n\
 		ad[ai*width+i] += cc*b[bi*width+i];\n\
+	}\n\
+}\n\
+__kernel void mul_bd(__global float* cd, __global float* a, __global float* bd, const int width) {\n\
+	int rows = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	int bi = get_global_id(1);\n\
+	float cc = cd[ai+bi*rows];\n\
+	for (int i = 0; i < width; i++) {\n\
+		bd[bi*width+i] += cc*a[ai*width+i];\n\
 	}\n\
 }\n";
 
