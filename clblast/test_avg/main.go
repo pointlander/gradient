@@ -32,5 +32,8 @@ func main() {
 	Avg := context.U(context.Avg)
 	loss := Avg(set.Get("data"))
 	context.Gradient(set, loss)
+	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {
+}
+`)
 	fmt.Fprintf(context.Output, code)
 }

@@ -367,7 +367,7 @@ __kernel void mul(__global float* a, __global float* b, __global float* c, const
 	for (int i = 0; i < width; i++) {\n\
 		sum += a[ai*width+i] * b[bi*width+i];\n\
 	}\n\
-	c[bi*aw + ai];\n\
+	c[bi*aw + ai] = sum;\n\
 }\n\
 __kernel void mul_ad(__global float* cd, __global float* b, __global float* ad, const int width) {\n\
 	int rows = get_global_size(0);\n\
@@ -494,6 +494,7 @@ void _check(const char* file, int line, const char* func, cl_int err) {
 
 #define CHECK(err) _check(__FILE__, __LINE__, __func__, err)
 
+void callback(float* output, int w, int h);
 
 float pattern_value = 0.0f;
 size_t pattern_size = sizeof(float);
@@ -581,12 +582,13 @@ int gradient(void) {
 `)
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	fmt.Fprintf(context.Output, "\tcl_int err = 0;\n")
+	fmt.Fprintf(context.Output, "\tcl_int status = 0;\n")
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 			value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(err);\n")
 		fmt.Fprintf(context.Output, "\terr = 0;\n")
-		fmt.Fprintf(context.Output, "\tcl_int status = clEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, &event);\n",
+		fmt.Fprintf(context.Output, "\tstatus = clEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, &event);\n",
 			value.N, value.S[0]*value.S[1], value.N)
 		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
 		clWaitForEvents(1, &event);
@@ -609,9 +611,18 @@ int gradient(void) {
 	}
 	a(func(a *V) bool {
 		fmt.Fprintf(context.Output, "\t{\n")
+		fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+		fmt.Fprintf(context.Output, "\tcl_int status = 0;\n")
 		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
-		fmt.Fprintf(context.Output, "\tclEnqueueReadBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, NULL);\n",
+		fmt.Fprintf(context.Output, "\tstatus = clEnqueueReadBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, &event);\n",
 			a.N, a.S[0]*a.S[1], a.N)
+		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
+		clWaitForEvents(1, &event);
+		clReleaseEvent(event);
+		event = NULL;
+	}
+`)
+		fmt.Fprintf(context.Output, "\tcallback(host_%s, %d, %d);\n", a.N, a.S[0], a.S[1])
 		fmt.Fprintf(context.Output, "\tfree(host_%s);\n", a.N)
 		fmt.Fprintf(context.Output, "\t}\n")
 		return false

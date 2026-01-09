@@ -32,5 +32,8 @@ func main() {
 	Everett := context.U(context.Everett)
 	loss := Everett(set.Get("data"))
 	context.Gradient(set, loss)
+	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {
+}
+`)
 	fmt.Fprintf(context.Output, code)
 }
