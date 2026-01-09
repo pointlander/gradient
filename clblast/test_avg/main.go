@@ -5,10 +5,17 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/pointlander/gradient/clblast"
 )
+
+const code = `int main() {
+	init();
+	gradient();
+	uninit();
+}`
 
 func main() {
 	context := clblast.Context{}
@@ -25,4 +32,5 @@ func main() {
 	Avg := context.U(context.Avg)
 	loss := Avg(set.Get("data"))
 	context.Gradient(set, loss)
+	fmt.Fprintf(context.Output, code)
 }
