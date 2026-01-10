@@ -87,10 +87,11 @@ func (v *V) Allocate(output *os.File) {
 	fmt.Fprintf(output, "\tcl_int err = 0;\n")
 	fmt.Fprintf(output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 		v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "CHECK(err);\n")
+	fmt.Fprintf(output, "\tCHECK(err);\n")
+	fmt.Fprintf(output, "\terr = 0;\n")
 	fmt.Fprintf(output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 		v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "CHECK(err);\n")
+	fmt.Fprintf(output, "\tCHECK(err);\n")
 	fmt.Fprintf(output, "\tcl_event event_a = NULL;\n")
 	fmt.Fprintf(output, "\tCHECK(clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event_a));\n",
 		v.N, v.S[0]*v.S[1])
@@ -146,7 +147,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-	`, c.N, b.N, a.N, a.S[0], a.S[1], b.S[1])
+`, c.N, b.N, a.N, a.S[0], a.S[1], b.S[1])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_ad);\n")
 
 	fmt.Fprintf(context.Output, `	cl_kernel kernel_bd = clCreateKernel(program, "mul_bd", NULL);
@@ -160,7 +161,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-	`, c.N, a.N, b.N, a.S[0], a.S[1], b.S[1])
+`, c.N, a.N, b.N, a.S[0], a.S[1], b.S[1])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_bd);\n")
 
 	return false
@@ -337,8 +338,8 @@ func (context *Context) Gradient(set Set, a Meta) (cost V) {
 #include <clblast_c.h>
 
 const char* kernel_source = "__kernel void everett(__global float* input, __global float* output) {\n\
-    const int idx = get_global_id(0);\n\
-    const int idx2 = 2*idx;\n\
+	const int idx = get_global_id(0);\n\
+	const int idx2 = 2*idx;\n\
 	const float in = input[idx];\n\
 	if (in < 0.0f) {\n\
 		output[idx2] = 0.0f;\n\
@@ -582,31 +583,26 @@ int gradient(void) {
 `)
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	fmt.Fprintf(context.Output, "\tcl_int err = 0;\n")
-	fmt.Fprintf(context.Output, "\tcl_int status = 0;\n")
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 			value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(err);\n")
 		fmt.Fprintf(context.Output, "\terr = 0;\n")
-		fmt.Fprintf(context.Output, "\tstatus = clEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, &event);\n",
+		fmt.Fprintf(context.Output, "\tCHECK(clEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), %s.X, 0, NULL, &event));\n",
 			value.N, value.S[0]*value.S[1], value.N)
-		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+		fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
 `)
 		fmt.Fprintf(context.Output, "\tcl_mem device_%s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
 			value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(err);\n")
 		fmt.Fprintf(context.Output, "\terr = 0;\n")
-		fmt.Fprintf(context.Output, "\tstatus = clEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, &event);\n",
+		fmt.Fprintf(context.Output, "\tCHECK(clEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, &event));\n",
 			value.N, value.S[0]*value.S[1], value.N)
-		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+		fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
 `)
 	}
 	a(func(a *V) bool {
@@ -614,22 +610,30 @@ int gradient(void) {
 		fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 		fmt.Fprintf(context.Output, "\tcl_int status = 0;\n")
 		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
-		fmt.Fprintf(context.Output, "\tstatus = clEnqueueReadBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, &event);\n",
+		fmt.Fprintf(context.Output, "\tCHECK(clEnqueueReadBuffer(queue, device_%s, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, &event));\n",
 			a.N, a.S[0]*a.S[1], a.N)
-		fmt.Fprintf(context.Output, `	if (status == CL_SUCCESS) {
-		clWaitForEvents(1, &event);
-		clReleaseEvent(event);
-		event = NULL;
-	}
+		fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
 `)
 		fmt.Fprintf(context.Output, "\tcallback(host_%s, %d, %d);\n", a.N, a.S[0], a.S[1])
+		fmt.Fprintf(context.Output, `	for (int i = 0; i < %d; i++) {
+			host_%s[i] = 1.0;
+	}
+`, a.S[0]*a.S[1], a.N)
+		fmt.Fprintf(context.Output, "\tCHECK(clEnqueueWriteBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, &event));\n",
+			a.N, a.S[0]*a.S[1], a.N)
+		fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`)
 		fmt.Fprintf(context.Output, "\tfree(host_%s);\n", a.N)
 		fmt.Fprintf(context.Output, "\t}\n")
 		return false
 	})
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", value.N)
-		fmt.Fprintf(context.Output, "\tclEnqueueReadBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, NULL);\n",
+		fmt.Fprintf(context.Output, "\tCHECK(clEnqueueReadBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), %s.D, 0, NULL, NULL));\n",
 			value.N, value.S[0]*value.S[1], value.N)
 		fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s_d);\n", value.N)
 	}

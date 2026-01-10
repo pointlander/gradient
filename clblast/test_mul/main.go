@@ -19,6 +19,16 @@ const code = `int main() {
 		data2.X[i] = (float)(i+1);
 	}
 	gradient();
+	for (int i = 0; i < 8; i++) {
+		if (data.D[i] != d[i]) {
+			printf("%%f != %%f;\n", data.D[i], d[i]);
+			exit(1);
+		}
+		if (data2.D[i] != d2[i]) {
+			printf("%%f != %%f;\n", data2.D[i], d2[i]);
+			exit(1);
+		}
+	}
 	uninit();
 }`
 
@@ -60,10 +70,20 @@ func main() {
 		}
 		return false
 	})
+	fmt.Fprintf(context.Output, "float d[] = {")
+	for _, v := range data.X[:len(data.X)-1] {
+		fmt.Fprintf(context.Output, "%f,", v)
+	}
+	fmt.Fprintf(context.Output, "%f};\n", data.X[len(data.X)-1])
+	fmt.Fprintf(context.Output, "float d2[] = {")
+	for _, v := range data2.X[:len(data2.X)-1] {
+		fmt.Fprintf(context.Output, "%f,", v)
+	}
+	fmt.Fprintf(context.Output, "%f};\n", data2.X[len(data2.X)-1])
 	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {
 	for (int i = 0; i < w*h; i++) {
 		if (x[i] != output[i]) {
-			printf("%%f != %%f\n;", x[i], output[i]);
+			printf("%%f != %%f;\n", x[i], output[i]);
 			exit(1);
 		}
 	}
