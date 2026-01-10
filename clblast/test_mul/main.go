@@ -14,18 +14,18 @@ import (
 
 const code = `int main() {
 	init();
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		data.X[i] = (float)(i+1);
 		data2.X[i] = (float)(i+1);
 	}
 	gradient();
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (data.D[i] != d[i]) {
-			printf("%%f != %%f;\n", data.D[i], d[i]);
+			printf("d %%f != %%f;\n", data.D[i], d[i]);
 			exit(1);
 		}
 		if (data2.D[i] != d2[i]) {
-			printf("%%f != %%f;\n", data2.D[i], d2[i]);
+			printf("d2 %%f != %%f;\n", data2.D[i], d2[i]);
 			exit(1);
 		}
 	}
@@ -42,19 +42,19 @@ func main() {
 	defer context.Output.Close()
 
 	set := clblast.NewSet()
-	set.Add(&context, "data", 8, 1)
-	set.Add(&context, "data2", 8, 1)
+	set.Add(&context, "data", 2, 2)
+	set.Add(&context, "data2", 2, 2)
 
-	Everett := context.B(context.Mul)
-	loss := Everett(set.Get("data"), set.Get("data2"))
+	Mul := context.B(context.Mul)
+	loss := Mul(set.Get("data"), set.Get("data2"))
 	context.Gradient(set, loss)
 
 	set32 := tf32.NewSet()
-	set32.Add("data", 8, 1)
-	set32.Add("data2", 8, 1)
+	set32.Add("data", 2, 2)
+	set32.Add("data2", 2, 2)
 	data := set32.ByName["data"]
 	data2 := set32.ByName["data2"]
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 4; i++ {
 		data.X = append(data.X, float32(i+1))
 		data2.X = append(data2.X, float32(i+1))
 	}
@@ -71,15 +71,15 @@ func main() {
 		return false
 	})
 	fmt.Fprintf(context.Output, "float d[] = {")
-	for _, v := range data.X[:len(data.X)-1] {
+	for _, v := range data.D[:len(data.D)-1] {
 		fmt.Fprintf(context.Output, "%f,", v)
 	}
-	fmt.Fprintf(context.Output, "%f};\n", data.X[len(data.X)-1])
+	fmt.Fprintf(context.Output, "%f};\n", data.D[len(data.D)-1])
 	fmt.Fprintf(context.Output, "float d2[] = {")
-	for _, v := range data2.X[:len(data2.X)-1] {
+	for _, v := range data2.D[:len(data2.D)-1] {
 		fmt.Fprintf(context.Output, "%f,", v)
 	}
-	fmt.Fprintf(context.Output, "%f};\n", data2.X[len(data2.X)-1])
+	fmt.Fprintf(context.Output, "%f};\n", data2.D[len(data2.D)-1])
 	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {
 	for (int i = 0; i < w*h; i++) {
 		if (x[i] != output[i]) {

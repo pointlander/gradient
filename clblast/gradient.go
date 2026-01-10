@@ -125,7 +125,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	cl_int width = %d;
 	clSetKernelArg(kernel, 3, sizeof(cl_int), (void*)&width);
 	size_t global_work_size[] = {%d, %d};
-	CHECK(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event));
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, &event));
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
@@ -143,7 +143,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	cl_int width_ad = %d;
 	clSetKernelArg(kernel_ad, 3, sizeof(cl_int), (void*)&width_ad);
 	size_t global_work_size_ad[] = {%d, %d};
-	CHECK(clEnqueueNDRangeKernel(queue, kernel_ad, 1, NULL, global_work_size_ad, NULL, 0, NULL, &event));
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_ad, 2, NULL, global_work_size_ad, NULL, 0, NULL, &event));
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
@@ -157,7 +157,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	cl_int width_bd = %d;
 	clSetKernelArg(kernel_bd, 3, sizeof(cl_int), (void*)&width_bd);
 	size_t global_work_size_bd[] = {%d, %d};
-	CHECK(clEnqueueNDRangeKernel(queue, kernel_bd, 1, NULL, global_work_size_bd, NULL, 0, NULL, &event));
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_bd, 2, NULL, global_work_size_bd, NULL, 0, NULL, &event));
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
@@ -371,22 +371,24 @@ __kernel void mul(__global float* a, __global float* b, __global float* c, const
 	c[bi*aw + ai] = sum;\n\
 }\n\
 __kernel void mul_ad(__global float* cd, __global float* b, __global float* ad, const int width) {\n\
-	int rows = get_global_size(0);\n\
-	int ai = get_global_id(0);\n\
-	int bi = get_global_id(1);\n\
-	float cc = cd[ai+bi*rows];\n\
-	for (int i = 0; i < width; i++) {\n\
-		ad[ai*width+i] += cc*b[bi*width+i];\n\
+	int rows = get_global_size(1);\n\
+	int row = get_global_id(0);\n\
+	int col = get_global_id(1);\n\
+	float sum = 0;\n\
+	for (int i = 0; i < rows; i++) {\n\
+		sum += cd[row+i*rows]*b[i*width+col];\n\
 	}\n\
+	ad[row*width+col] = sum;\n\
 }\n\
 __kernel void mul_bd(__global float* cd, __global float* a, __global float* bd, const int width) {\n\
-	int rows = get_global_size(0);\n\
-	int ai = get_global_id(0);\n\
-	int bi = get_global_id(1);\n\
-	float cc = cd[ai+bi*rows];\n\
+	int rows = get_global_size(1);\n\
+	int row = get_global_id(0);\n\
+	int col = get_global_id(1);\n\
+	float sum = 0;\n\
 	for (int i = 0; i < width; i++) {\n\
-		bd[bi*width+i] += cc*a[ai*width+i];\n\
+		sum += cd[row+i*rows]*a[i*width+col];\n\
 	}\n\
+	bd[row*width+col] = sum;\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
