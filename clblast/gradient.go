@@ -113,6 +113,13 @@ func (v *V) Free(output *os.File) {
 
 // Mul multiplies two tensors
 func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] {
+		panic("first dimension is not the same")
+	}
 	c := context.NewV(a.S[1], b.S[1])
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
@@ -129,7 +136,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`, a.N, b.N, c.N, a.S[0], a.S[1], b.S[1])
+`, a.N, b.N, c.N, width, a.S[1], b.S[1])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
 
 	if k(&c) {
@@ -151,7 +158,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`, c.N, b.N, a.N, a.S[0], b.S[1], b.S[0], a.S[1], a.S[0])
+`, c.N, b.N, a.N, width, b.S[1], b.S[0], a.S[1], a.S[0])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_ad);\n")
 
 	fmt.Fprintf(context.Output, `	cl_kernel kernel_bd = clCreateKernel(program, "mul_bd", NULL);
@@ -169,7 +176,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`, c.N, a.N, b.N, a.S[0], a.S[1], a.S[0], b.S[1], b.S[0])
+`, c.N, a.N, b.N, width, a.S[1], a.S[0], b.S[1], b.S[0])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_bd);\n")
 
 	return false
