@@ -389,12 +389,12 @@ __kernel void mul_ad(__global float* cd, __global float* b, __global float* ad, 
 	ad[row*width+col] += sum;\n\
 }\n\
 __kernel void mul_bd(__global float* cd, __global float* a, __global float* bd, const int width, const int r, const int c) {\n\
-	int cols = get_global_size(0);\n\
+	int cols = get_global_size(1);\n\
 	int row = get_global_id(0);\n\
 	int col = get_global_id(1);\n\
 	float sum = 0;\n\
 	for (int i = 0; i < r; i++) {\n\
-		sum += cd[row+i*cols]*a[i*width+col];\n\
+		sum += cd[i+row*cols]*a[i*width+col];\n\
 	}\n\
 	bd[row*width+col] += sum;\n\
 }\n";
