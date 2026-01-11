@@ -227,13 +227,13 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event));\n",
-		c.S[0]*c.S[1], c.N, a.N)
+		a.S[0]*a.S[1], c.N, a.N)
 	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
 `)
 
-	fmt.Fprintf(context.Output, "\tfloat alpha = %ff;\n", 1/float32(c.S[0]*c.S[1]))
+	fmt.Fprintf(context.Output, "\tfloat alpha = %ff;\n", 1/float32(a.S[0]*a.S[1]))
 	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event));\n", c.N)
 	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
@@ -263,7 +263,6 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	clReleaseEvent(event);
 	event = NULL;
 `)
-
 	fmt.Fprintf(context.Output, "\talpha = alpha*host_%s[0];\n", c.N)
 	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSaxpy(%d, alpha, device_%s, 0, 1, device_%s_d, 0, 1, &queue, &event));\n",
 		a.S[0]*a.S[1], "I", a.N)
