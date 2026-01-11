@@ -349,12 +349,12 @@ const char* kernel_source = "__kernel void everett(__global float* input, __glob
 	const int idx = get_global_id(0);\n\
 	const int idx2 = 2*idx;\n\
 	const float in = input[idx];\n\
-	if (in < 0.0f) {\n\
+	if (in > 0.0f) {\n\
 		output[idx2] = 0.0f;\n\
 	} else {\n\
 		output[idx2] = in;\n\
 	}\n\
-	if (in > 0.0f) {\n\
+	if (in < 0.0f) {\n\
 		output[idx2+1] = 0.0f;\n\
 	} else {\n\
 		output[idx2+1] = in;\n\
