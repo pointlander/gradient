@@ -16,6 +16,8 @@ const code = `int main() {
 	init();
 	for (int i = 0; i < 4; i++) {
 		data.X[i] = (float)(i+1);
+	}
+	for (int i = 0; i < 8; i++) {
 		data2.X[i] = (float)(i+1);
 	}
 	gradient();
@@ -24,6 +26,8 @@ const code = `int main() {
 			printf("d %%f != %%f;\n", data.D[i], d[i]);
 			exit(1);
 		}
+	}
+	for (int i = 0; i < 8; i++) {
 		if (data2.D[i] != d2[i]) {
 			printf("d2 %%f != %%f;\n", data2.D[i], d2[i]);
 			exit(1);
@@ -43,7 +47,7 @@ func main() {
 
 	set := clblast.NewSet()
 	set.Add(&context, "data", 2, 2)
-	set.Add(&context, "data2", 2, 2)
+	set.Add(&context, "data2", 2, 4)
 
 	Mul := context.B(context.Mul)
 	loss := Mul(set.Get("data"), set.Get("data2"))
@@ -51,11 +55,13 @@ func main() {
 
 	set32 := tf32.NewSet()
 	set32.Add("data", 2, 2)
-	set32.Add("data2", 2, 2)
+	set32.Add("data2", 2, 4)
 	data := set32.ByName["data"]
 	data2 := set32.ByName["data2"]
-	for i := 0; i < 4; i++ {
+	for i := 0; i < data.S[0]*data.S[1]; i++ {
 		data.X = append(data.X, float32(i+1))
+	}
+	for i := 0; i < data2.S[0]*data2.S[1]; i++ {
 		data2.X = append(data2.X, float32(i+1))
 	}
 	loss32 := tf32.Mul(set32.Get("data"), set32.Get("data2"))

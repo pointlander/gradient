@@ -113,7 +113,7 @@ func (v *V) Free(output *os.File) {
 
 // Mul multiplies two tensors
 func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
-	c := context.NewV(a.S[1], a.S[1])
+	c := context.NewV(a.S[1], b.S[1])
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
@@ -141,13 +141,17 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	clSetKernelArg(kernel_ad, 1, sizeof(cl_mem), (void*)&device_%s);
 	clSetKernelArg(kernel_ad, 2, sizeof(cl_mem), (void*)&device_%s_d);
 	cl_int width_ad = %d;
+	cl_int r_ad = %d;
+	cl_int c_ad = %d;
 	clSetKernelArg(kernel_ad, 3, sizeof(cl_int), (void*)&width_ad);
+	clSetKernelArg(kernel_ad, 4, sizeof(cl_int), (void*)&r_ad);
+	clSetKernelArg(kernel_ad, 5, sizeof(cl_int), (void*)&c_ad);
 	size_t global_work_size_ad[] = {%d, %d};
 	CHECK(clEnqueueNDRangeKernel(queue, kernel_ad, 2, NULL, global_work_size_ad, NULL, 0, NULL, &event));
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`, c.N, b.N, a.N, a.S[0], a.S[1], b.S[1])
+`, c.N, b.N, a.N, a.S[0], b.S[1], b.S[0], a.S[1], a.S[0])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_ad);\n")
 
 	fmt.Fprintf(context.Output, `	cl_kernel kernel_bd = clCreateKernel(program, "mul_bd", NULL);
@@ -155,13 +159,17 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	clSetKernelArg(kernel_bd, 1, sizeof(cl_mem), (void*)&device_%s);
 	clSetKernelArg(kernel_bd, 2, sizeof(cl_mem), (void*)&device_%s_d);
 	cl_int width_bd = %d;
+	cl_int r_bd = %d;
+	cl_int c_bd = %d;
 	clSetKernelArg(kernel_bd, 3, sizeof(cl_int), (void*)&width_bd);
+	clSetKernelArg(kernel_ad, 4, sizeof(cl_int), (void*)&r_bd);
+	clSetKernelArg(kernel_ad, 5, sizeof(cl_int), (void*)&c_bd);
 	size_t global_work_size_bd[] = {%d, %d};
 	CHECK(clEnqueueNDRangeKernel(queue, kernel_bd, 2, NULL, global_work_size_bd, NULL, 0, NULL, &event));
 	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`, c.N, a.N, b.N, a.S[0], a.S[1], b.S[1])
+`, c.N, a.N, b.N, a.S[0], a.S[1], a.S[0], b.S[1], b.S[0])
 	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_bd);\n")
 
 	return false
@@ -370,25 +378,25 @@ __kernel void mul(__global float* a, __global float* b, __global float* c, const
 	}\n\
 	c[bi*aw + ai] = sum;\n\
 }\n\
-__kernel void mul_ad(__global float* cd, __global float* b, __global float* ad, const int width) {\n\
-	int rows = get_global_size(1);\n\
+__kernel void mul_ad(__global float* cd, __global float* b, __global float* ad, const int width, const int r, const int c) {\n\
+	int cols = get_global_size(0);\n\
 	int row = get_global_id(0);\n\
 	int col = get_global_id(1);\n\
 	float sum = 0;\n\
-	for (int i = 0; i < rows; i++) {\n\
-		sum += cd[row+i*rows]*b[i*width+col];\n\
+	for (int i = 0; i < r; i++) {\n\
+		sum += cd[row+i*cols]*b[i*width+col];\n\
 	}\n\
-	ad[row*width+col] = sum;\n\
+	ad[row*width+col] += sum;\n\
 }\n\
-__kernel void mul_bd(__global float* cd, __global float* a, __global float* bd, const int width) {\n\
-	int rows = get_global_size(1);\n\
+__kernel void mul_bd(__global float* cd, __global float* a, __global float* bd, const int width, const int r, const int c) {\n\
+	int cols = get_global_size(0);\n\
 	int row = get_global_id(0);\n\
 	int col = get_global_id(1);\n\
 	float sum = 0;\n\
-	for (int i = 0; i < width; i++) {\n\
-		sum += cd[row+i*rows]*a[i*width+col];\n\
+	for (int i = 0; i < r; i++) {\n\
+		sum += cd[row+i*cols]*a[i*width+col];\n\
 	}\n\
-	bd[row*width+col] = sum;\n\
+	bd[row*width+col] += sum;\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
