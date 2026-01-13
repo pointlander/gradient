@@ -276,6 +276,55 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	return false
 }
 
+// Quadratic computes the quadratic cost of two tensors
+func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] || a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	c := context.NewV(a.S[1])
+
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	c.Allocate(context.Output)
+	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "quadratic", NULL);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&device_%s);
+	cl_int width = %d;
+	clSetKernelArg(kernel, 3, sizeof(cl_int), (void*)&width);
+	size_t global_work_size[] = {%d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, a.N, b.N, c.N, a.S[0], a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
+
+	if k(&c) {
+		return true
+	}
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_d = clCreateKernel(program, "quadratic_d", NULL);
+	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel_d, 2, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 3, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 4, sizeof(cl_mem), (void*)&device_%s_d);
+	size_t global_work_size_d[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_d, 2, NULL, global_work_size_d, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, a.N, b.N, c.N, a.N, b.N, a.S[0], a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
+
+	return false
+}
+
 // Avg computes the average of the tensor
 func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(1)
@@ -465,7 +514,7 @@ __kernel void add(__global float* a, __global float* b, __global float* c) {\n\
 	int width = get_global_size(0);\n\
 	int ai = get_global_id(0);\n\
 	int bi = get_global_id(1);\n\
-	c[bi*width + ai] += a[bi*width+ai] + b[ai];\n\
+	c[bi*width + ai] = a[bi*width+ai] + b[ai];\n\
 }\n\
 __kernel void add_ad(__global float* cd, __global float* ad) {\n\
 	int width = get_global_size(0);\n\
@@ -481,6 +530,23 @@ __kernel void add_bd(__global float* cd, __global float* bd, const int height) {
 		sum += cd[i*width + ai];\n\
 	}\n\
 	bd[ai] += sum;\n\
+}\n\
+__kernel void quadratic(__global float* a, __global float* b, __global float* c, const int width) {\n\
+	int ai = get_global_id(0);\n\
+	float sum = 0;\n\
+	for (int i = 0; i < width; i++) {\n\
+		float diff = a[ai*width + i] - b[ai*width + i];\n\
+		sum += diff*diff;\n\
+	}\n\
+	c[ai] = sum;\n\
+}\n\
+__kernel void quadratic_d(__global float* a, __global float* b, __global float* cd, __global float* ad, __global float* bd) {\n\
+	int width = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	int bi = get_global_id(1);\n\
+	float d = cd[bi];\n\
+	ad[bi*width+ai] += (a[bi*width+ai] - b[bi*width+ai]) * d;\n\
+	bd[bi*width+ai] += (b[bi*width+ai] - a[bi*width+ai]) * d;\n\
 }\n";
 
 const char* getErrorString(cl_int error) {

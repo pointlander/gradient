@@ -1,4 +1,4 @@
-all: test_mul/mul test_add/add test_everett/everett test_avg/avg
+all: test_mul/mul test_add/add test_everett/everett test_quadratic/quadratic test_avg/avg
 
 test_mul/mul:
 	cd test_mul && go build
@@ -18,6 +18,12 @@ test_everett/everett:
 	gcc -o test_everett/everett test_everett/*.c -lclblast -lOpenCL
 	test_everett/everett
 
+test_quadratic/quadratic:
+	cd test_quadratic && go build
+	cd test_quadratic && ./test_quadratic
+	gcc -g -O1 -fsanitize=address -o test_quadratic/quadratic test_quadratic/*.c -lclblast -lOpenCL
+	test_quadratic/quadratic
+
 test_avg/avg:
 	cd test_avg && go build
 	cd test_avg && ./test_avg
@@ -28,4 +34,5 @@ clean:
 	rm -f test_mul/mul.c test_mul/mul test_mul/test_mul
 	rm -f test_add/add.c test_add/add test_add/test_add
 	rm -f test_everett/everett.c test_everett/everett test_everett/test_everett
+	rm -f test_quadratic/quadratic.c test_quadratic/quadratic test_quadratic/test_quadratic
 	rm -f test_avg/avg.c test_avg/avg test_avg/test_avg
