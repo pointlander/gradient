@@ -182,6 +182,63 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	return false
 }
 
+// Add adds two tensors
+func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[string]interface{}) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] {
+		panic("first dimension is not the same")
+	}
+	c := context.NewV(a.S[0], a.S[1])
+
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	c.Allocate(context.Output)
+	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "add", NULL);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&device_%s);
+	size_t global_work_size[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, a.N, b.N, c.N, a.S[0], a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
+
+	if k(&c) {
+		return true
+	}
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_ad = clCreateKernel(program, "add_ad", NULL);
+	clSetKernelArg(kernel_ad, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_ad, 1, sizeof(cl_mem), (void*)&device_%s_d);
+	size_t global_work_size_ad[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_ad, 2, NULL, global_work_size_ad, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, c.N, a.N, c.S[0], c.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_ad);\n")
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_bd = clCreateKernel(program, "add_bd", NULL);
+	clSetKernelArg(kernel_bd, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_bd, 1, sizeof(cl_mem), (void*)&device_%s_d);
+	cl_int height = %d;
+	clSetKernelArg(kernel_bd, 2, sizeof(cl_int), (void*)&height);
+	size_t global_work_size_bd[] = {%d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_bd, 1, NULL, global_work_size_bd, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, c.N, b.N, a.S[1], a.S[0])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_bd);\n")
+
+	return false
+}
+
 // Everett computes the split reality activation function
 func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := context.NewV(2*a.S[0], a.S[1])
@@ -403,6 +460,27 @@ __kernel void mul_bd(__global float* cd, __global float* a, __global float* bd, 
 		sum += cd[i+row*cols]*a[i*width+col];\n\
 	}\n\
 	bd[row*width+col] += sum;\n\
+}\n\
+__kernel void add(__global float* a, __global float* b, __global float* c) {\n\
+	int width = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	int bi = get_global_id(1);\n\
+	c[bi*width + ai] += a[bi*width+ai] + b[ai];\n\
+}\n\
+__kernel void add_ad(__global float* cd, __global float* ad) {\n\
+	int width = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	int bi = get_global_id(1);\n\
+	ad[bi*width+ai] += cd[bi*width + ai];\n\
+}\n\
+__kernel void add_bd(__global float* cd, __global float* bd, const int height) {\n\
+	int width = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	float sum = 0;\n\
+	for (int i = 0; i < height; i++) {\n\
+		sum += cd[i*width + ai];\n\
+	}\n\
+	bd[ai] += sum;\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
