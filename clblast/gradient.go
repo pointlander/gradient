@@ -54,7 +54,7 @@ func NewSet() Set {
 
 // Add adds weights to a set
 func (s *Set) Add(context *Context, name string, d ...int) {
-	v := context.NewV(d...)
+	v := NewV(context.Node, d...)
 	v.N = name
 	s.Weights = append(s.Weights, &v)
 	s.ByName[name] = &v
@@ -72,12 +72,12 @@ type Context struct {
 }
 
 // NewV create a new tensor value
-func (context *Context) NewV(s ...int) V {
+func NewV(node int, s ...int) V {
 	if len(s) == 1 {
 		s = []int{s[0], 1}
 	}
 	return V{
-		N: fmt.Sprintf("node%d", context.Node),
+		N: fmt.Sprintf("node%d", node),
 		S: s,
 	}
 }
@@ -120,7 +120,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	if width != b.S[0] {
 		panic("first dimension is not the same")
 	}
-	c := context.NewV(a.S[1], b.S[1])
+	c := NewV(node, a.S[1], b.S[1])
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
@@ -169,8 +169,8 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	cl_int r_bd = %d;
 	cl_int c_bd = %d;
 	clSetKernelArg(kernel_bd, 3, sizeof(cl_int), (void*)&width_bd);
-	clSetKernelArg(kernel_ad, 4, sizeof(cl_int), (void*)&r_bd);
-	clSetKernelArg(kernel_ad, 5, sizeof(cl_int), (void*)&c_bd);
+	clSetKernelArg(kernel_bd, 4, sizeof(cl_int), (void*)&r_bd);
+	clSetKernelArg(kernel_bd, 5, sizeof(cl_int), (void*)&c_bd);
 	size_t global_work_size_bd[] = {%d, %d};
 	CHECK(clEnqueueNDRangeKernel(queue, kernel_bd, 2, NULL, global_work_size_bd, NULL, 0, NULL, &event));
 	clWaitForEvents(1, &event);
@@ -191,7 +191,7 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 	if width != b.S[0] {
 		panic("first dimension is not the same")
 	}
-	c := context.NewV(a.S[0], a.S[1])
+	c := NewV(node, a.S[0], a.S[1])
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
@@ -241,7 +241,7 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 
 // Everett computes the split reality activation function
 func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
-	c := context.NewV(2*a.S[0], a.S[1])
+	c := NewV(node, 2*a.S[0], a.S[1])
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
@@ -285,7 +285,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 	if width != b.S[0] || a.S[1] != b.S[1] {
 		panic("dimensions are not the same")
 	}
-	c := context.NewV(a.S[1])
+	c := NewV(node, a.S[1])
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
@@ -327,7 +327,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 
 // Avg computes the average of the tensor
 func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
-	c := context.NewV(1)
+	c := NewV(node, 1)
 
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
