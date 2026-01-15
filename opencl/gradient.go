@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package clblast
+package opencl
 
 import (
 	"fmt"
@@ -467,7 +467,7 @@ func (context *Context) Gradient(set Set, a Meta) (cost V) {
 #define CL_TARGET_OPENCL_VERSION 120
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
-#include <clblast_c.h>
+#include <CL/cl.h>
 
 const char* kernel_source = "__kernel void everett(__global float* input, __global float* output) {\n\
 	const int idx = get_global_id(0);\n\
@@ -644,37 +644,6 @@ const char* getErrorString(cl_int error) {
 		case CL_INVALID_COMPILER_OPTIONS: return "CL_INVALID_COMPILER_OPTIONS";
 		case CL_INVALID_LINKER_OPTIONS: return "CL_INVALID_LINKER_OPTIONS";
 		case CL_INVALID_DEVICE_PARTITION_COUNT: return "CL_INVALID_LINKER_OPTIONS";
-
-		case CLBlastNotImplemented: return "CLBlastNotImplemented";
-		case CLBlastInvalidMatrixA: return "CLBlastInvalidMatrixA";
-		case CLBlastInvalidMatrixB: return "CLBlastInvalidMatrixB";
-		case CLBlastInvalidMatrixC: return "CLBlastInvalidMatrixC";
-		case CLBlastInvalidVectorX: return "CLBlastInvalidVectorX";
-		case CLBlastInvalidVectorY: return "CLBlastInvalidVectorY";
-		case CLBlastInvalidDimension: return "CLBlastInvalidDimension";
-		case CLBlastInvalidLeadDimA: return "CLBlastInvalidLeadDimA";
-		case CLBlastInvalidLeadDimB: return "CLBlastInvalidLeadDimB";
-		case CLBlastInvalidLeadDimC: return "CLBlastInvalidLeadDimC";
-		case CLBlastInvalidIncrementX: return "CLBlastInvalidIncrementX";
-		case CLBlastInvalidIncrementY: return "CLBlastInvalidIncrementY";
-		case CLBlastInsufficientMemoryA: return "CLBlastInsufficientMemoryA";
-		case CLBlastInsufficientMemoryB: return "CLBlastInsufficientMemoryB";
-		case CLBlastInsufficientMemoryC: return "CLBlastInsufficientMemoryC";
-		case CLBlastInsufficientMemoryX: return "CLBlastInsufficientMemoryX";
-		case CLBlastInsufficientMemoryY: return "CLBlastInsufficientMemoryY";
-
-		case CLBlastInsufficientMemoryTemp: return "CLBlastInsufficientMemoryTemp";
-		case CLBlastInvalidBatchCount: return "CLBlastInvalidBatchCount";
-		case CLBlastInvalidOverrideKernel: return "CLBlastInvalidOverrideKernel";
-		case CLBlastMissingOverrideParameter: return "CLBlastMissingOverrideParameter";
-		case CLBlastInvalidLocalMemUsage: return "CLBlastInvalidLocalMemUsage";
-		case CLBlastNoHalfPrecision: return "CLBlastNoHalfPrecision";
-		case CLBlastNoDoublePrecision: return "CLBlastNoDoublePrecision";
-		case CLBlastInvalidVectorScalar: return "CLBlastInvalidVectorScalar";
-		case CLBlastInsufficientMemoryScalar: return "CLBlastInsufficientMemoryScalar";
-		case CLBlastDatabaseError: return "CLBlastDatabaseError";
-		case CLBlastUnknownError: return "CLBlastUnknownError";
-		case CLBlastUnexpectedError: return "CLBlastUnexpectedError";
 		default: return "Unknown OpenCL Error";
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pointlander/gradient/clblast"
+	"github.com/pointlander/gradient/opencl"
 )
 
 const code = `#include <math.h>
@@ -71,7 +71,7 @@ int main() {
 }`
 
 func main() {
-	context := clblast.Context{}
+	context := opencl.Context{}
 	var err error
 	context.Output, err = os.Create("xor.c")
 	if err != nil {
@@ -79,7 +79,7 @@ func main() {
 	}
 	defer context.Output.Close()
 
-	set := clblast.NewSet()
+	set := opencl.NewSet()
 	set.Add(&context, "input", 2, 4)
 	set.Add(&context, "output", 1, 4)
 	set.Add(&context, "w0", 2, 4)

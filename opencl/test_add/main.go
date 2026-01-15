@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pointlander/gradient/clblast"
+	"github.com/pointlander/gradient/opencl"
 	"github.com/pointlander/gradient/tf32"
 )
 
@@ -37,7 +37,7 @@ const code = `int main() {
 }`
 
 func main() {
-	context := clblast.Context{}
+	context := opencl.Context{}
 	var err error
 	context.Output, err = os.Create("add.c")
 	if err != nil {
@@ -45,7 +45,7 @@ func main() {
 	}
 	defer context.Output.Close()
 
-	set := clblast.NewSet()
+	set := opencl.NewSet()
 	set.Add(&context, "data", 2, 2)
 	set.Add(&context, "data2", 2)
 

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pointlander/gradient/clblast"
+	"github.com/pointlander/gradient/opencl"
 	"github.com/pointlander/gradient/tf32"
 )
 
@@ -17,7 +17,7 @@ const code = `int main() {
 	for (int i = 0; i < 4; i++) {
 		data.X[i] = (float)(i+1);
 	}
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		data2.X[i] = (float)(i+1);
 	}
 	gradient();
@@ -27,7 +27,7 @@ const code = `int main() {
 			exit(1);
 		}
 	}
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (data2.D[i] != d2[i]) {
 			printf("d2 %%f != %%f;\n", data2.D[i], d2[i]);
 			exit(1);
@@ -37,25 +37,25 @@ const code = `int main() {
 }`
 
 func main() {
-	context := clblast.Context{}
+	context := opencl.Context{}
 	var err error
-	context.Output, err = os.Create("mul.c")
+	context.Output, err = os.Create("quadratic.c")
 	if err != nil {
 		panic(err)
 	}
 	defer context.Output.Close()
 
-	set := clblast.NewSet()
+	set := opencl.NewSet()
 	set.Add(&context, "data", 2, 2)
-	set.Add(&context, "data2", 2, 4)
+	set.Add(&context, "data2", 2, 2)
 
-	Mul := context.B(context.Mul)
-	loss := Mul(set.Get("data"), set.Get("data2"))
+	Quadratic := context.B(context.Quadratic)
+	loss := Quadratic(set.Get("data"), set.Get("data2"))
 	context.Gradient(set, loss)
 
 	set32 := tf32.NewSet()
 	set32.Add("data", 2, 2)
-	set32.Add("data2", 2, 4)
+	set32.Add("data2", 2, 2)
 	data := set32.ByName["data"]
 	data2 := set32.ByName["data2"]
 	for i := 0; i < data.S[0]*data.S[1]; i++ {
@@ -64,7 +64,7 @@ func main() {
 	for i := 0; i < data2.S[0]*data2.S[1]; i++ {
 		data2.X = append(data2.X, float32(i+1))
 	}
-	loss32 := tf32.Mul(set32.Get("data"), set32.Get("data2"))
+	loss32 := tf32.Quadratic(set32.Get("data"), set32.Get("data2"))
 	loss32(func(a *tf32.V) bool {
 		fmt.Fprintf(context.Output, "float x[] = {")
 		for _, v := range a.X[:len(a.X)-1] {
