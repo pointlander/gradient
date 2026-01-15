@@ -380,35 +380,17 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 		return true
 	}
 
-	fmt.Fprintf(context.Output, "\tcl_mem device_%s = clCreateBuffer(context, CL_MEM_READ_WRITE, %d * sizeof(float), NULL, &err);\n",
-		"I", a.S[0]*a.S[1])
-	fmt.Fprintf(context.Output, "CHECK(err);\n")
-	fmt.Fprintf(context.Output, `	float pattern_value = 1.0f;
-	size_t pattern_size = sizeof(float);
-`)
-	fmt.Fprintf(context.Output, "\tCHECK(clEnqueueFillBuffer(queue, device_%s, &pattern_value, pattern_size, 0, %d * sizeof(float), 0, NULL, &event));\n",
-		"I", a.S[0]*a.S[1])
-	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_d = clCreateKernel(program, "avg_d", NULL);
+	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s_d);
+	size_t global_work_size_d[] = {%d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_d, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`)
-	fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", c.N, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tCHECK(clEnqueueReadBuffer(queue, device_%s_d, CL_TRUE, 0, %d * sizeof(float), host_%s, 0, NULL, &event));\n",
-		c.N, c.S[0]*c.S[1], c.N)
-	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
-	clReleaseEvent(event);
-	event = NULL;
-`)
-	fmt.Fprintf(context.Output, "\tfloat alpha = host_%s[0]/((float)n);\n", c.N)
-	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSaxpy(%d, alpha, device_%s, 0, 1, device_%s_d, 0, 1, &queue, &event));\n",
-		a.S[0]*a.S[1], "I", a.N)
-	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
-	clReleaseEvent(event);
-	event = NULL;
-`)
+`, a.N, c.N, a.S[0]*a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
 
-	fmt.Fprintf(context.Output, "\tclReleaseMemObject(device_%s);\n", "I")
-	fmt.Fprintf(context.Output, "\tfree(host_%s);\n", c.N)
 	return false
 }
 
@@ -593,6 +575,12 @@ __kernel void reduce_sum(__global const float* input, __global float* output, __
 	if (local_id == 0) {\n\
 		output[get_group_id(0)] = local_cache[0];\n\
 	}\n\
+}\n\
+__kernel void avg_d(__global float* ad, __global float* cd) {\n\
+	int size = get_global_size(0);\n\
+	int ai = get_global_id(0);\n\
+	const float d = cd[0] / (float)size;\n\
+	ad[ai] += d;\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
