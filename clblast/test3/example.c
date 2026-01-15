@@ -81,36 +81,21 @@ void _check(const char* file, int line, const char* func, cl_int err) {
 #define CHECK(err) _check(__FILE__, __LINE__, __func__, err)
 
 
-const char* kernel_source = "__kernel void reduce_sum(\n\
-    __global const float* input,\n\
-    __global float* output,\n\
-    __local float* local_cache,\n\
-    unsigned int n)\n\
-{\n\
-    uint global_id = get_global_id(0);\n\
-    uint local_id = get_local_id(0);\n\
-    uint group_size = get_local_size(0);\n\
-\n\
-    // 1. Load data from global to local memory\n\
-    // If the index is out of bounds, load 0.0\n\
-    local_cache[local_id] = (global_id < n) ? input[global_id] : 0.0f;\n\
-\n\
-    // Wait for all work-items in the group to finish loading\n\
-    barrier(CLK_LOCAL_MEM_FENCE);\n\
-\n\
-    // 2. Perform reduction in local memory\n\
-    for (uint stride = group_size / 2; stride > 0; stride /= 2) {\n\
-        if (local_id < stride) {\n\
-            local_cache[local_id] += local_cache[local_id + stride];\n\
-        }\n\
-        // Ensure all additions for this stride are done before next\n\
-        barrier(CLK_LOCAL_MEM_FENCE);\n\
-    }\n\
-\n\
-    // 3. Write the work-group result to global memory\n\
-    if (local_id == 0) {\n\
-        output[get_group_id(0)] = local_cache[0];\n\
-    }\n\
+const char* kernel_source = "__kernel void reduce_sum(__global const float* input, __global float* output, __local float* local_cache, unsigned int n) {\n\
+	uint global_id = get_global_id(0);\n\
+	uint local_id = get_local_id(0);\n\
+	uint group_size = get_local_size(0);\n\
+	local_cache[local_id] = (global_id < n) ? input[global_id] : 0.0f;\n\
+	barrier(CLK_LOCAL_MEM_FENCE);\n\
+	for (uint stride = group_size / 2; stride > 0; stride /= 2) {\n\
+		if (local_id < stride) {\n\
+			local_cache[local_id] += local_cache[local_id + stride];\n\
+		}\n\
+		barrier(CLK_LOCAL_MEM_FENCE);\n\
+	}\n\
+	if (local_id == 0) {\n\
+		output[get_group_id(0)] = local_cache[0];\n\
+	}\n\
 }\n"; 
 
 int main() {

@@ -332,19 +332,49 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
-	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSsum(%d, device_%s, 0, device_%s, 0, 1, &queue, &event));\n",
-		a.S[0]*a.S[1], c.N, a.N)
-	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	fmt.Fprintf(context.Output, `	int n = %d;
+	size_t local_size = 256;
+	size_t num_groups = (n + local_size - 1) / local_size;
+	size_t global_size = num_groups * local_size;
+	float *h_output = (float*)calloc(num_groups, sizeof(float));
+	cl_mem d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float) * num_groups, NULL, &err);
+	CHECK(err);
+	err = 0;
+	CHECK(clEnqueueWriteBuffer(queue, d_output, CL_TRUE, 0, num_groups * sizeof(float), h_output, 0, NULL, &event));
+	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`)
+`, a.S[0]*a.S[1])
 
-	fmt.Fprintf(context.Output, "\tfloat alpha = %ff;\n", 1/float32(a.S[0]*a.S[1]))
-	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSscal(1, alpha, device_%s, 0, 1, &queue, &event));\n", c.N)
-	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
+	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "reduce_sum", NULL);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&d_output);
+	clSetKernelArg(kernel, 2, local_size * sizeof(float), NULL);
+	clSetKernelArg(kernel, 3, sizeof(unsigned int), (void*)&n);
+	size_t global_work_size[] = {global_size};
+	size_t local_work_size[] = {local_size};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, &event));
+	clWaitForEvents(1, &event);
 	clReleaseEvent(event);
 	event = NULL;
-`)
+	CHECK(clEnqueueReadBuffer(queue, d_output, CL_TRUE, 0, num_groups * sizeof(float), h_output, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+	float sum = 0;
+	for(int i = 0; i < (int)num_groups; i++) {
+		sum += h_output[i];
+	}
+	sum = sum / ((float)n);
+	CHECK(clEnqueueWriteBuffer(queue, device_%s, CL_TRUE, 0, 1 * sizeof(float), &sum, 0, NULL, &event));
+	
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, a.N, c.N)
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
+	fmt.Fprintf(context.Output, "\tclReleaseMemObject(d_output);\n")
+	fmt.Fprintf(context.Output, "\tfree(h_output);")
 
 	if k(&c) {
 		return true
@@ -369,7 +399,7 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	clReleaseEvent(event);
 	event = NULL;
 `)
-	fmt.Fprintf(context.Output, "\talpha = alpha*host_%s[0];\n", c.N)
+	fmt.Fprintf(context.Output, "\tfloat alpha = host_%s[0]/((float)n);\n", c.N)
 	fmt.Fprintf(context.Output, "\tCHECK(CLBlastSaxpy(%d, alpha, device_%s, 0, 1, device_%s_d, 0, 1, &queue, &event));\n",
 		a.S[0]*a.S[1], "I", a.N)
 	fmt.Fprintf(context.Output, `	clWaitForEvents(1, &event);
@@ -547,6 +577,22 @@ __kernel void quadratic_d(__global float* a, __global float* b, __global float* 
 	float d = cd[bi];\n\
 	ad[bi*width+ai] += (a[bi*width+ai] - b[bi*width+ai]) * d;\n\
 	bd[bi*width+ai] += (b[bi*width+ai] - a[bi*width+ai]) * d;\n\
+}\n\
+__kernel void reduce_sum(__global const float* input, __global float* output, __local float* local_cache, unsigned int n) {\n\
+	uint global_id = get_global_id(0);\n\
+	uint local_id = get_local_id(0);\n\
+	uint group_size = get_local_size(0);\n\
+	local_cache[local_id] = (global_id < n) ? input[global_id] : 0.0f;\n\
+	barrier(CLK_LOCAL_MEM_FENCE);\n\
+	for (uint stride = group_size / 2; stride > 0; stride /= 2) {\n\
+		if (local_id < stride) {\n\
+			local_cache[local_id] += local_cache[local_id + stride];\n\
+		}\n\
+		barrier(CLK_LOCAL_MEM_FENCE);\n\
+	}\n\
+	if (local_id == 0) {\n\
+		output[get_group_id(0)] = local_cache[0];\n\
+	}\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
