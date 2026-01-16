@@ -394,6 +394,48 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	return false
 }
 
+// T the transpose of the matrix
+func (context *Context) T(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := NewV(node, a.S[1], a.S[0])
+
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	c.Allocate(context.Output)
+	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "transpose", NULL);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
+	cl_int width = %d;
+	clSetKernelArg(kernel, 2, sizeof(cl_int), (void*)&width);
+	cl_int height = %d;
+	clSetKernelArg(kernel, 3, sizeof(cl_int), (void*)&height);
+	size_t global_work_size[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, c.N, a.N, a.S[0], a.S[1], a.S[0], a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
+
+	if k(&c) {
+		return true
+	}
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_d = clCreateKernel(program, "transpose_d", NULL);
+	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 2, sizeof(cl_int), (void*)&width);
+	clSetKernelArg(kernel_d, 3, sizeof(cl_int), (void*)&height);
+	size_t global_work_size_d[] = {%d, %d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_d, 2, NULL, global_work_size_d, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, a.N, c.N, a.S[0], a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
+
+	return false
+}
+
 // Op is a operation
 func (context *Context) Op(op Operation) func(a ...Meta) Meta {
 	return func(a ...Meta) Meta {
@@ -581,6 +623,20 @@ __kernel void avg_d(__global float* ad, __global float* cd) {\n\
 	int ai = get_global_id(0);\n\
 	const float d = cd[0] / (float)size;\n\
 	ad[ai] += d;\n\
+}\n\
+__kernel void transpose(__global float *output, __global float *input, uint width, uint height) {\n\
+	int x = get_global_id(0);\n\
+	int y = get_global_id(1);\n\
+	if (x < width && y < height) {\n\
+		output[x * height + y] = input[y * width + x];\n\
+	}\n\
+}\n\
+__kernel void transpose_d(__global float *output, __global float *input, uint width, uint height) {\n\
+	int x = get_global_id(0);\n\
+	int y = get_global_id(1);\n\
+	if (x < width && y < height) {\n\
+		output[x * height + y] += input[y * width + x];\n\
+	}\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
