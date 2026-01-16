@@ -12,7 +12,8 @@ import (
 	"github.com/pointlander/gradient/tf32"
 )
 
-const code = `int main() {
+const code = `#include <unistd.h>
+int main() {
 	init();
 	for (int i = 0; i < 8; i++) {
 		if (i&1) { 
@@ -28,7 +29,9 @@ const code = `int main() {
 			exit(1);
 		}
 	}
+	
 	uninit();
+	sleep(1);
 }`
 
 func main() {
