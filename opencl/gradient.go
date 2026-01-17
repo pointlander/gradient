@@ -638,6 +638,7 @@ __kernel void transpose_d(__global float *output, __global float *input, uint wi
 		output[x * height + y] += input[y * width + x];\n\
 	}\n\
 }\n\
+// https://arxiv.org/abs/2004.06278\n\
 __kernel void dropout(__global float* input, __global float* output, float drop, ulong seed) {\n\
 	int ai = get_global_id(0);\n\
 	ulong x = 0;\n\
