@@ -637,6 +637,48 @@ __kernel void transpose_d(__global float *output, __global float *input, uint wi
 	if (x < width && y < height) {\n\
 		output[x * height + y] += input[y * width + x];\n\
 	}\n\
+}\n\
+__kernel void dropout(__global float* input, __global float* output, float drop, ulong seed) {\n\
+	int ai = get_global_id(0);\n\
+	ulong x = 0;\n\
+	ulong y = 0;\n\
+	ulong z = 0;\n\
+	x = (ulong)ai*seed;\n\
+	y = x;\n\
+	z = y + seed;\n\
+	x = x*x + y;\n\
+	x = (x >> 32) | (x << 32);\n\
+	x = x*x + z;\n\
+	x = (x >> 32) | (x << 32);\n\
+	x = x*x + y;\n\
+	x = (x >> 32) | (x << 32);\n\
+	x = (x*x +z) >> 32;\n\
+	ulong rate = (ulong)(drop * (float)0xFFFFFFFF);\n\
+	if (x > rate) {\n\
+		output[ai] = input[ai] / (1.0f - rate);\n\
+	} else {\n\
+		output[ai] = 0.0f;\n\
+	}\n\
+}\n\
+__kernel void dropout_d(__global float* input, __global float* output, float drop, ulong seed) {\n\
+	int ai = get_global_id(0);\n\
+	ulong x = 0;\n\
+	ulong y = 0;\n\
+	ulong z = 0;\n\
+	x = (ulong)ai*seed;\n\
+	y = x;\n\
+	z = y + seed;\n\
+	x = x*x + y;\n\
+	x = (x >> 32) | (x << 32);\n\
+	x = x*x + z;\n\
+	x = (x >> 32) | (x << 32);\n\
+	x = x*x + y;\n\
+	x = (x >> 32) | (x << 32);\n\
+	x = (x*x +z) >> 32;\n\
+	ulong rate = (ulong)(drop * (float)0xFFFFFFFF);\n\
+	if (x > rate) {\n\
+		output[ai] += input[ai];\n\
+	}\n\
 }\n";
 
 const char* getErrorString(cl_int error) {
