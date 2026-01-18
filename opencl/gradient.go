@@ -436,6 +436,55 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 	return false
 }
 
+// Dropout is a dropout regularization function
+func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	drop := .1
+	if len(options) > 0 && options[0]["drop"] != nil {
+		drop = *options[0]["drop"].(*float64)
+	}
+	c := NewV(node, a.S[0], a.S[1])
+
+	fmt.Fprintf(context.Output, "\tcl_event event = NULL;\n")
+	c.Allocate(context.Output)
+	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, "\tstatic cl_uint lfsr = 1;\n")
+	fmt.Fprintf(context.Output, `	cl_kernel kernel = clCreateKernel(program, "dropout", NULL);
+	clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&device_%s);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&device_%s);
+	cl_float drop = %f;
+	clSetKernelArg(kernel, 2, sizeof(cl_float), (void*)&drop);
+	cl_ulong seed = (cl_ulong)lfsr;
+	clSetKernelArg(kernel, 3, sizeof(cl_ulong), (void*)&seed);
+	size_t global_work_size[] = {%d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, a.N, c.N, drop, a.S[0]*a.S[1])
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel);\n")
+
+	if k(&c) {
+		return true
+	}
+
+	fmt.Fprintf(context.Output, `	cl_kernel kernel_d = clCreateKernel(program, "dropout_d", NULL);
+	clSetKernelArg(kernel_d, 0, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 1, sizeof(cl_mem), (void*)&device_%s_d);
+	clSetKernelArg(kernel_d, 2, sizeof(cl_float), (void*)&drop);
+	clSetKernelArg(kernel_d, 3, sizeof(cl_ulong), (void*)&seed);
+	size_t global_work_size_d[] = {%d};
+	CHECK(clEnqueueNDRangeKernel(queue, kernel_d, 1, NULL, global_work_size_d, NULL, 0, NULL, &event));
+	clWaitForEvents(1, &event);
+	clReleaseEvent(event);
+	event = NULL;
+`, c.N, a.N, a.S[0]*a.S[1])
+	fmt.Fprintf(context.Output, "\tconst cl_uint LFSRMask = 0x80000057;\n")
+	fmt.Fprintf(context.Output, "\tlfsr = (lfsr >> 1) ^ (-(lfsr & 1) & LFSRMask);\n")
+	fmt.Fprintf(context.Output, "\tclReleaseKernel(kernel_d);\n")
+
+	return false
+}
+
 // Op is a operation
 func (context *Context) Op(op Operation) func(a ...Meta) Meta {
 	return func(a ...Meta) Meta {
@@ -639,43 +688,37 @@ __kernel void transpose_d(__global float *output, __global float *input, uint wi
 	}\n\
 }\n\
 // https://arxiv.org/abs/2004.06278\n\
-__kernel void dropout(__global float* input, __global float* output, float drop, ulong seed) {\n\
+__kernel void dropout(__global float* input, __global float* output, const float drop, const ulong seed) {\n\
 	int ai = get_global_id(0);\n\
-	ulong x = 0;\n\
-	ulong y = 0;\n\
-	ulong z = 0;\n\
-	x = (ulong)ai*seed;\n\
-	y = x;\n\
-	z = y + seed;\n\
+	ulong x = (ulong)ai*seed;\n\
+	ulong y = x;\n\
+	ulong z = y + seed;\n\
 	x = x*x + y;\n\
 	x = (x >> 32) | (x << 32);\n\
 	x = x*x + z;\n\
 	x = (x >> 32) | (x << 32);\n\
 	x = x*x + y;\n\
 	x = (x >> 32) | (x << 32);\n\
-	x = (x*x +z) >> 32;\n\
+	x = (x*x + z) >> 32;\n\
 	ulong rate = (ulong)(drop * (float)0xFFFFFFFF);\n\
 	if (x > rate) {\n\
-		output[ai] = input[ai] / (1.0f - rate);\n\
+		output[ai] = input[ai] / (1.0f - drop);\n\
 	} else {\n\
 		output[ai] = 0.0f;\n\
 	}\n\
 }\n\
-__kernel void dropout_d(__global float* input, __global float* output, float drop, ulong seed) {\n\
+__kernel void dropout_d(__global float* input, __global float* output, const float drop, const ulong seed) {\n\
 	int ai = get_global_id(0);\n\
-	ulong x = 0;\n\
-	ulong y = 0;\n\
-	ulong z = 0;\n\
-	x = (ulong)ai*seed;\n\
-	y = x;\n\
-	z = y + seed;\n\
+	ulong x = (ulong)ai*seed;\n\
+	ulong y = x;\n\
+	ulong z = y + seed;\n\
 	x = x*x + y;\n\
 	x = (x >> 32) | (x << 32);\n\
 	x = x*x + z;\n\
 	x = (x >> 32) | (x << 32);\n\
 	x = x*x + y;\n\
 	x = (x >> 32) | (x << 32);\n\
-	x = (x*x +z) >> 32;\n\
+	x = (x*x + z) >> 32;\n\
 	ulong rate = (ulong)(drop * (float)0xFFFFFFFF);\n\
 	if (x > rate) {\n\
 		output[ai] += input[ai];\n\
