@@ -86,17 +86,17 @@ func NewV(node int, s ...int) V {
 func (v *V) Allocate(output *os.File) {
 	fmt.Fprintf(output, "\tcudaError_t err;\n")
 	fmt.Fprintf(output, "\tint *device_%s = 0;\n", v.N)
-	fmt.Fprintf(output, "\tCHECK_CUDA_ERROR(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "\tCHECK_CUDA_ERROR(cudaMemset(device_%s, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, "\tCHECK(cudaMemset(device_%s, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
 	fmt.Fprintf(output, "\tint *device_%s_d = 0;\n", v.N)
-	fmt.Fprintf(output, "\tCHECK_CUDA_ERROR(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "\tCHECK_CUDA_ERROR(cudaMemset(device_%s_d, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
+	fmt.Fprintf(output, "\tCHECK(cudaMemset(device_%s_d, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
 }
 
 // Free generates the code to free the variable
 func (v *V) Free(output *os.File) {
-	fmt.Fprintf(output, "\tCHECK_CUDA_ERROR(cudaFree(device_%s_d));\n", v.N)
-	fmt.Fprintf(output, "\tCHECK_CUDA_ERROR(cudaFree(device_%s));\n", v.N)
+	fmt.Fprintf(output, "\tCHECK(cudaFree(device_%s_d));\n", v.N)
+	fmt.Fprintf(output, "\tCHECK(cudaFree(device_%s));\n", v.N)
 }
 
 // Mul multiplies two tensors
@@ -292,13 +292,13 @@ func (context *Context) Gradient(set Set, a Meta) (cost V) {
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
-#define CHECK_CUDA_ERROR(e) check_cuda_error(__FILE__, __LINE__, (e))
+#define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
 
-void check_cuda_error(const char* file, int line, cudaError_t e) {
-	if (e == cudaSuccess) {
+void check(const char* file, int line, const char* func, cudaError_t err) {
+	if (err == cudaSuccess) {
 		return;
 	}
-	printf("[ERROR] %%s:%%d: in function %%s\n", file, line, cudaGetErrorString(e));
+	printf("[ERROR] %%s:%%d: in function %%s - %%s\n", file, line, func, cudaGetErrorString(err));
 	exit(1);
 }
 
@@ -339,35 +339,35 @@ int gradient(void) {
 `)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tint *device_%s = 0;\n", value.N)
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaMemcpy(device_%s, %s.X, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s, %s.X, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tint *device_%s_d = 0;\n", value.N)
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaMemcpy(device_%s_d, %s.D, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, %s.D, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1])
 	}
 	a(func(a *V) bool {
 		fmt.Fprintf(context.Output, "\t{\n")
 		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaMemcpy(host_%s, device_%s, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(host_%s, device_%s, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
 			a.N, a.N, a.S[0]*a.S[1])
 		fmt.Fprintf(context.Output, "\tcallback(host_%s, %d, %d);\n", a.N, a.S[0], a.S[1])
 		fmt.Fprintf(context.Output, `	for (int i = 0; i < %d; i++) {
 			host_%s[i] = 1.0;
 	}
 `, a.S[0]*a.S[1], a.N)
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaMemcpy(device_%s_d, host_%s, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, host_%s, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			a.N, a.N, a.S[0]*a.S[1])
 		fmt.Fprintf(context.Output, "\tfree(host_%s);\n", a.N)
 		fmt.Fprintf(context.Output, "\t}\n")
 		return false
 	})
 	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaFree(device_%s));\n", value.N)
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
+		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s));\n", value.N)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
 			value.N, value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK_CUDA_ERROR(cudaFree(device_%s_d));\n", value.N)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_d));\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
 }
