@@ -84,7 +84,6 @@ func NewV(node int, s ...int) V {
 
 // Allocate generates the code which allocates the variable
 func (v *V) Allocate(output *os.File) {
-	fmt.Fprintf(output, "\tcudaError_t err;\n")
 	fmt.Fprintf(output, "\tint *device_%s = 0;\n", v.N)
 	fmt.Fprintf(output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
 	fmt.Fprintf(output, "\tCHECK(cudaMemset(device_%s, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
@@ -109,9 +108,15 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 		panic("first dimension is not the same")
 	}
 	c := NewV(node, a.S[1], b.S[1])
+	M := a.S[1]
+	N := b.S[1]
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16); 
+	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    mul<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d, %d);
+`, N, M, a.N, b.N, c.N, M, width, N)
 
 	if k(&c) {
 		return true
@@ -292,6 +297,18 @@ func (context *Context) Gradient(set Set, a Meta) (cost V) {
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
+__global__ void mul(float* a, float* b, float* c, int m, int width, int n) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((row < m) && (col < n)) {
+		float sum = 0.0f;
+		for (int k = 0; k < width; k++) {
+			sum += a[row * width + k] * b[col * width + k];
+		}
+		c[col * width + row] = sum;
+	}
+}
+
 #define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
 
 void check(const char* file, int line, const char* func, cudaError_t err) {
@@ -335,7 +352,6 @@ void uninit(void) {
 	fmt.Fprintf(context.Output, `
 }
 int gradient(void) {
-	cudaError_t err;
 `)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tint *device_%s = 0;\n", value.N)
@@ -370,6 +386,7 @@ int gradient(void) {
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_d));\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
+	return 0;
 }
 `)
 	return

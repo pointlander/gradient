@@ -39,7 +39,7 @@ const code = `int main() {
 func main() {
 	context := cuda.Context{}
 	var err error
-	context.Output, err = os.Create("mul.c")
+	context.Output, err = os.Create("mul.cu")
 	if err != nil {
 		panic(err)
 	}
@@ -87,12 +87,12 @@ func main() {
 	}
 	fmt.Fprintf(context.Output, "%f};\n", data2.D[len(data2.D)-1])
 	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {
-	/*for (int i = 0; i < w*h; i++) {
+	for (int i = 0; i < w*h; i++) {
 		if (x[i] != output[i]) {
 			printf("%%f != %%f;\n", x[i], output[i]);
 			exit(1);
 		}
-	}*/
+	}
 }
 `)
 	fmt.Fprintf(context.Output, code)

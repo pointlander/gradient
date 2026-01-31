@@ -3,7 +3,7 @@ all: test_mul/mul
 test_mul/mul:
 	cd test_mul && go build
 	cd test_mul && ./test_mul
-	nvcc -o test_mul/mul test_mul/*.c
+	nvcc -o test_mul/mul test_mul/*.cu
 	test_mul/mul
 
 test_add/add:
@@ -43,7 +43,7 @@ test_xor/xor:
 	test_xor/xor
 
 clean:
-	rm -f test_mul/mul.c test_mul/mul test_mul/test_mul
+	rm -f test_mul/mul.cu test_mul/mul test_mul/test_mul
 	rm -f test_add/add.c test_add/add test_add/test_add
 	rm -f test_everett/everett.c test_everett/everett test_everett/test_everett
 	rm -f test_quadratic/quadratic.c test_quadratic/quadratic test_quadratic/test_quadratic
