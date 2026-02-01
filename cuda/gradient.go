@@ -125,12 +125,12 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16); 
 	dim3 blocksPerGrida((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
     mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
-`, N, M, c.N, b.N, a.N, N, width, M, a.S[1], a.S[0])
+`, a.S[1], a.S[0], c.N, b.N, a.N, N, width, M, a.S[1], a.S[0])
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16); 
 	dim3 blocksPerGridb((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
     mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
-`, N, M, c.N, a.N, b.N, N, width, M, b.S[1], b.S[0])
+`, b.S[1], b.S[0], c.N, a.N, b.N, N, width, M, b.S[1], b.S[0])
 
 	return false
 }
