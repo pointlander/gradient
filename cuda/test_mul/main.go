@@ -21,7 +21,7 @@ const code = `int main() {
 		data2.X[i] = (float)(i+1);
 	}
 	gradient();
-	/*for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (data.D[i] != d[i]) {
 			printf("d %%f != %%f;\n", data.D[i], d[i]);
 			exit(1);
@@ -32,7 +32,7 @@ const code = `int main() {
 			printf("d2 %%f != %%f;\n", data2.D[i], d2[i]);
 			exit(1);
 		}
-	}*/
+	}
 	uninit();
 }`
 

@@ -116,11 +116,21 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16); 
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
     mul<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d, %d);
-`, N, M, a.N, b.N, c.N, M, width, N)
+`, N, M, a.N, b.N, c.N, N, width, M)
 
 	if k(&c) {
 		return true
 	}
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16); 
+	dim3 blocksPerGrida((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d);
+`, N, M, c.N, b.N, a.N, N, width, M)
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16); 
+	dim3 blocksPerGridb((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d);
+`, N, M, c.N, a.N, b.N, N, width, M)
 
 	return false
 }
@@ -297,7 +307,7 @@ func (context *Context) Gradient(set Set, a Meta) (cost V) {
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
-__global__ void mul(float* a, float* b, float* c, int m, int width, int n) {
+__global__ void mul(float* a, float* b, float* c, int n, int width, int m) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((row < m) && (col < n)) {
@@ -308,6 +318,29 @@ __global__ void mul(float* a, float* b, float* c, int m, int width, int n) {
 		c[col * width + row] = sum;
 	}
 }
+__global__ void mul_ad(float* cd, float* b, float* ad, int n, int width, int m) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((row < n) && (col < m)) {
+		float sum = 0;
+		for (int i = 0; i < n; i++) {
+			sum += cd[row+i*m]*b[i*width+col];
+		}
+		ad[row*width+col] += sum;
+	}
+}
+__global__ void mul_bd(float* cd, float* a, float* bd, int n, int width, int m) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((row < n) && (col < m)) {
+		float sum = 0;
+		for (int i = 0; i < m; i++) {
+			sum += cd[i + row*m]*a[i*width+col];
+		}
+		bd[row*width+col] += sum;
+	}
+}
+
 
 #define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
 
