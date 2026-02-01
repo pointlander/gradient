@@ -124,13 +124,13 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16); 
 	dim3 blocksPerGrida((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
-    mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d);
-`, N, M, c.N, b.N, a.N, N, width, M)
+    mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
+`, N, M, c.N, b.N, a.N, N, width, M, a.S[1], a.S[0])
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16); 
 	dim3 blocksPerGridb((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
-    mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d);
-`, N, M, c.N, a.N, b.N, N, width, M)
+    mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
+`, N, M, c.N, a.N, b.N, N, width, M, b.S[1], b.S[0])
 
 	return false
 }
@@ -318,10 +318,10 @@ __global__ void mul(float* a, float* b, float* c, int n, int width, int m) {
 		c[col * width + row] = sum;
 	}
 }
-__global__ void mul_ad(float* cd, float* b, float* ad, int n, int width, int m) {
+__global__ void mul_ad(float* cd, float* b, float* ad, int n, int width, int m, int r, int c) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
-	if ((row < n) && (col < m)) {
+	if ((row < r) && (col < c)) {
 		float sum = 0;
 		for (int i = 0; i < n; i++) {
 			sum += cd[row+i*m]*b[i*width+col];
@@ -329,10 +329,10 @@ __global__ void mul_ad(float* cd, float* b, float* ad, int n, int width, int m) 
 		ad[row*width+col] += sum;
 	}
 }
-__global__ void mul_bd(float* cd, float* a, float* bd, int n, int width, int m) {
+__global__ void mul_bd(float* cd, float* a, float* bd, int n, int width, int m, int r, int c) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
-	if ((row < n) && (col < m)) {
+	if ((row < r) && (col < c)) {
 		float sum = 0;
 		for (int i = 0; i < m; i++) {
 			sum += cd[i + row*m]*a[i*width+col];
