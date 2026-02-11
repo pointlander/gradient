@@ -145,13 +145,29 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 		panic("first dimension is not the same")
 	}
 	c := NewV(node, a.S[0], a.S[1])
+	M := a.S[1]
+	N := a.S[0]
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16); 
+	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    add<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d);
+`, N, M, a.N, b.N, c.N, N, M)
 
 	if k(&c) {
 		return true
 	}
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16); 
+	dim3 blocksPerGrida((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    add_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
+`, a.S[0], a.S[1], c.N, a.N, N, M)
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16); 
+	dim3 blocksPerGridb((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    add_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
+`, b.S[0], b.S[1], c.N, b.N, N, M)
 
 	return false
 }
@@ -340,7 +356,33 @@ __global__ void mul_bd(float* cd, float* a, float* bd, int n, int width, int m, 
 		bd[row*width+col] += sum;
 	}
 }
-
+__global__ void add(float* a, float* b, float* c, int n, int m) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((row < m) && (col < n)) {
+		for (int k = 0; k < n; k++) {
+			c[row * n + k] = a[row * n + k] + b[k];
+		}
+	}
+}
+__global__ void add_ad(float* cd, float* ad, int n, int m) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((row < m) && (col < n)) {
+		ad[row * n + col] += cd[row * n + col];
+	}
+}
+__global__ void add_bd(float* cd, float* bd, int n, int m) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((row < m) && (col < n)) {
+		float sum = 0;
+		for (int i = 0; i < m; i++) {
+			sum += cd[i * n + col];
+		}
+		bd[col] += sum;
+	}
+}
 
 #define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
 
