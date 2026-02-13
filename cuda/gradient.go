@@ -178,10 +178,19 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
+	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
+    everett<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %d);
+`, c.S[0]*c.S[1], a.N, c.N, c.S[0]*c.S[1])
 
 	if k(&c) {
 		return true
 	}
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
+	dim3 blocksPerGridd((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
+    everett_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, %d);
+`, c.S[0]*c.S[1], c.N, c.N, a.N, c.S[0]*c.S[1])
 
 	return false
 }
@@ -380,6 +389,33 @@ __global__ void add_bd(float* cd, float* bd, int n, int m) {
 			sum += cd[i * n + col];
 		}
 		bd[col] += sum;
+	}
+}
+__global__ void everett(float* a, float* c, int n) {
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if (col < n) {
+		const int idx2 = 2*col;
+		const float in = a[col];
+		if (in > 0.0f) {
+			c[idx2] = 0.0f;
+		} else {
+			c[idx2] = in;
+		}
+		if (in < 0.0f) {
+			c[idx2+1] = 0.0f;
+		} else {
+			c[idx2+1] = in;
+		}
+	}
+}
+__global__ void everett_d(float *c, float* cd, float* ad, int n) {
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if (col < n) {
+		const int idxA = col&~1U;
+		const int idxB = col|1U;
+		if ((c[col] != 0) || ((c[idxA] == 0) && (c[idxB] == 0))) {
+			ad[col>>1] += cd[col];
+		}
 	}
 }
 
