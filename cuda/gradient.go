@@ -180,7 +180,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
-    everett<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %d);
+	everett<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %d);
 `, c.S[0]*c.S[1], a.N, c.N, c.S[0]*c.S[1])
 
 	if k(&c) {
@@ -189,7 +189,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
 	dim3 blocksPerGridd((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
-    everett_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, %d);
+	everett_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, %d);
 `, c.S[0]*c.S[1], c.N, c.N, a.N, c.S[0]*c.S[1])
 
 	return false
@@ -208,10 +208,19 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
+	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
+	quadratic<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d);
+`, c.S[0], c.N, a.N, b.N, c.S[0]*c.S[1], width)
 
 	if k(&c) {
 		return true
 	}
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16, 16);
+	dim3 blocksPerGridd((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+	quadratic_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, (float *)device_%s_d, %d, %d, %d);
+`, a.S[0], a.S[1], a.N, b.N, c.N, a.N, c.N, a.S[0], c.S[1], width)
 
 	return false
 }
@@ -416,6 +425,26 @@ __global__ void everett_d(float *c, float* cd, float* ad, int n) {
 		if ((c[col] != 0) || ((c[idxA] == 0) && (c[idxB] == 0))) {
 			ad[col>>1] += cd[col];
 		}
+	}
+}
+__global__ void quadratic(float* c, float* a, float* b, int n, int width) {
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if (col < n) {
+		float sum = 0;
+		for (int i = 0; i < width; i++) {
+			float diff = a[col*width + i] - b[col*width + i];
+			sum += diff*diff;
+		}
+		c[col] = sum;
+	}
+}
+__global__ void quadratic_d(float* a, float* b, float* cd, float* ad, float* bd, int n, int m, int width) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((row < m) && (col < n)) {
+		float d = cd[row];
+		ad[row*width + col] += (a[row*width + col] - b[row*width + col]) * d;
+		bd[row*width + col] += (b[row*width + col] - a[row*width + col]) * d;
 	}
 }
 
