@@ -297,10 +297,21 @@ func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[s
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, "\tstatic ulong lfsr = 1;\n")
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
+	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
+	dropout<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %f, lfsr, %d);
+`, c.S[0]*c.S[1], a.N, c.N, drop, c.S[0]*c.S[1])
 
 	if k(&c) {
 		return true
 	}
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
+	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
+	dropout<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s_d, (float *)device_%s_d, %f, lfsr, %d);
+`, c.S[0]*c.S[1], c.N, a.N, drop, c.S[0]*c.S[1])
+	fmt.Fprintf(context.Output, "\tconst ulong LFSRMask = 0x80000057;\n")
+	fmt.Fprintf(context.Output, "\tlfsr = (lfsr >> 1) ^ (-(lfsr & 1) & LFSRMask);\n")
 
 	return false
 }
@@ -517,6 +528,46 @@ __global__ void transpose_d(float* input, float* output, int n, int m) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((col < n) && (row < m)) {\
 		output[col * m + row] += input[row * n + col];
+	}
+}
+__global__ void dropout(float* input, float* output, float drop, ulong seed, int n) {
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if (col < n) {
+		ulong x = (ulong)col*seed;
+		ulong y = x;
+		ulong z = y + seed;
+		x = x*x + y;
+		x = (x >> 32) | (x << 32);
+		x = x*x + z;
+		x = (x >> 32) | (x << 32);
+		x = x*x + y;
+		x = (x >> 32) | (x << 32);
+		x = (x*x + z) >> 32;
+		ulong rate = (ulong)(drop * (float)0xFFFFFFFF);
+		if (x > rate) {
+			output[col] = input[col] / (1.0f - drop);
+		} else {
+			output[col] = 0.0f;
+		}
+	}
+}
+__global__ void dropout_d(float* input, float* output, float drop, ulong seed, int n) {
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if (col < n) {
+		ulong x = (ulong)col*seed;
+		ulong y = x;
+		ulong z = y + seed;
+		x = x*x + y;
+		x = (x >> 32) | (x << 32);
+		x = x*x + z;
+		x = (x >> 32) | (x << 32);
+		x = x*x + y;
+		x = (x >> 32) | (x << 32);
+		x = (x*x + z) >> 32;
+		ulong rate = (ulong)(drop * (float)0xFFFFFFFF);
+		if (x > rate) {
+			output[col] += input[col];
+		}
 	}
 }
 
