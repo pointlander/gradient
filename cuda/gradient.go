@@ -123,12 +123,12 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	}
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16);
-	dim3 blocksPerGrida((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+	dim3 blocksPerGrida((%d + threadsPerBlocka.x - 1) / threadsPerBlocka.x, (%d + threadsPerBlocka.y - 1) / threadsPerBlocka.y);
     mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
 `, a.S[1], a.S[0], c.N, b.N, a.N, N, width, M, a.S[1], a.S[0])
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16);
-	dim3 blocksPerGridb((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+	dim3 blocksPerGridb((%d + threadsPerBlockb.x - 1) / threadsPerBlockb.x, (%d + threadsPerBlockb.y - 1) / threadsPerBlockb.y);
     mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
 `, b.S[1], b.S[0], c.N, a.N, b.N, N, width, M, b.S[1], b.S[0])
 
@@ -160,12 +160,12 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 	}
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16);
-	dim3 blocksPerGrida((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+	dim3 blocksPerGrida((%d + threadsPerBlocka.x - 1) / threadsPerBlocka.x, (%d + threadsPerBlocka.y - 1) / threadsPerBlocka.y);
     add_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
 `, a.S[0], a.S[1], c.N, a.N, N, M)
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16);
-	dim3 blocksPerGridb((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
+	dim3 blocksPerGridb((%d + threadsPerBlockb.x - 1) / threadsPerBlockb.x);
     add_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
 `, b.S[0], c.N, b.N, N, M)
 
@@ -188,7 +188,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	}
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
-	dim3 blocksPerGridd((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
+	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
 	everett_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, %d);
 `, c.S[0]*c.S[1], c.N, c.N, a.N, c.S[0]*c.S[1])
 
@@ -218,7 +218,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 	}
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16, 16);
-	dim3 blocksPerGridd((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x, (%d + threadsPerBlockd.y - 1) / threadsPerBlockd.y);
 	quadratic_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, (float *)device_%s_d, %d, %d, %d);
 `, a.S[0], a.S[1], a.N, b.N, c.N, a.N, c.N, a.S[0], c.S[1], width)
 
@@ -228,13 +228,37 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 // Avg computes the average of the tensor
 func (context *Context) Avg(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(node, 1)
+	n := a.S[0] * a.S[1]
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	int threadsPerBlock = 256;
+	int blocksPerGrid = (%d + (threadsPerBlock * 2 - 1)) / (threadsPerBlock * 2);
+	size_t sharedMemSize = threadsPerBlock * sizeof(float);
+	float *d_odata;
+	cudaMalloc(&d_odata, blocksPerGrid * sizeof(float));
+	reduce<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>((float *)device_%s, (float *)d_odata, %d);
+`, n, a.N, n)
+	fmt.Fprintf(context.Output, `	float *h_odata = (float*)malloc(blocksPerGrid * sizeof(float));
+	cudaMemcpy(h_odata, d_odata, blocksPerGrid * sizeof(int), cudaMemcpyDeviceToHost);
+	float sum = 0;
+	for (int i = 0; i < blocksPerGrid; i++) {
+		sum += h_odata[i];
+	}
+	free(h_odata);
+	cudaFree(d_odata);
+	sum /= ((float)%d);
+	cudaMemcpy((float *)device_%s, &sum, sizeof(float), cudaMemcpyHostToDevice);
+`, n, c.N)
 
 	if k(&c) {
 		return true
 	}
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
+	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
+	avg_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s_d, (float *)device_%s_d, %d);
+`, n, a.N, c.N, n)
 
 	return false
 }
@@ -446,6 +470,31 @@ __global__ void quadratic_d(float* a, float* b, float* cd, float* ad, float* bd,
 		ad[row*width + col] += (a[row*width + col] - b[row*width + col]) * d;
 		bd[row*width + col] += (b[row*width + col] - a[row*width + col]) * d;
 	}
+}
+__global__ void reduce(float* g_idata, float* g_odata, unsigned int n) {
+	extern __shared__ int sdata[];
+	unsigned int tid = threadIdx.x;
+	unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
+	int mySum = (i < n) ? g_idata[i] : 0;
+	if (i + blockDim.x < n) {
+		mySum += g_idata[i + blockDim.x];
+	}
+	sdata[tid] = mySum;
+	__syncthreads();
+	for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+		if (tid < s) {
+			sdata[tid] = mySum = mySum + sdata[tid + s];
+		}
+		__syncthreads();
+	}
+	if (tid == 0) {
+		g_odata[blockIdx.x] = sdata[0];
+	}
+}
+__global__ void avg_d(float* ad, float* cd, int size) {
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	const float d = cd[0] / (float)size;
+	ad[col] += d;
 }
 
 #define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
