@@ -526,7 +526,7 @@ __global__ void transpose(float* input, float* output, int n, int m) {
 __global__ void transpose_d(float* input, float* output, int n, int m) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
-	if ((col < n) && (row < m)) {\
+	if ((col < n) && (row < m)) {
 		output[col * m + row] += input[row * n + col];
 	}
 }
