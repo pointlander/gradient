@@ -55,16 +55,16 @@ int main() {
 		}
 		gradient();
 		for (int i = 0; i < w0.W*w0.H; i++) {
-			w0.X[i] -= .05*w0.D[i];
+			w0.X[i] -= .005*w0.D[i];
 		}
 		for (int i = 0; i < b0.W*b0.H; i++) {
-			b0.X[i] -= .05*b0.D[i];
+			b0.X[i] -= .005*b0.D[i];
 		}
 		for (int i = 0; i < w1.W*w1.H; i++) {
-			w1.X[i] -= .05*w1.D[i];
+			w1.X[i] -= .005*w1.D[i];
 		}
 		for (int i = 0; i < b1.W*b1.H; i++) {
-			b1.X[i] -= .05*b1.D[i];
+			b1.X[i] -= .005*b1.D[i];
 		}
 	}
 	uninit();

@@ -211,7 +211,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
 	quadratic<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d);
-`, c.S[0], c.N, a.N, b.N, c.S[0]*c.S[1], width)
+`, c.S[0], c.N, a.N, b.N, c.S[0], width)
 
 	if k(&c) {
 		return true
@@ -220,7 +220,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16, 16);
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x, (%d + threadsPerBlockd.y - 1) / threadsPerBlockd.y);
 	quadratic_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, (float *)device_%s_d, %d, %d, %d);
-`, a.S[0], a.S[1], a.N, b.N, c.N, a.N, c.N, a.S[0], c.S[1], width)
+`, a.S[0], a.S[1], a.N, b.N, c.N, a.N, b.N, a.S[0], a.S[1], width)
 
 	return false
 }
@@ -297,7 +297,7 @@ func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[s
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
-	fmt.Fprintf(context.Output, "\tstatic ulong lfsr = 1;\n")
+	fmt.Fprintf(context.Output, "\tstatic uint lfsr = 1;\n")
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
 	dropout<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %f, lfsr, %d);
@@ -310,7 +310,7 @@ func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[s
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
 	dropout<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s_d, (float *)device_%s_d, %f, lfsr, %d);
 `, c.S[0]*c.S[1], c.N, a.N, drop, c.S[0]*c.S[1])
-	fmt.Fprintf(context.Output, "\tconst ulong LFSRMask = 0x80000057;\n")
+	fmt.Fprintf(context.Output, "\tconst uint LFSRMask = 0x80000057;\n")
 	fmt.Fprintf(context.Output, "\tlfsr = (lfsr >> 1) ^ (-(lfsr & 1) & LFSRMask);\n")
 
 	return false
@@ -486,7 +486,7 @@ __global__ void quadratic_d(float* a, float* b, float* cd, float* ad, float* bd,
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((row < m) && (col < n)) {
-		float d = cd[row];
+		const float d = cd[row];
 		ad[row*width + col] += (a[row*width + col] - b[row*width + col]) * d;
 		bd[row*width + col] += (b[row*width + col] - a[row*width + col]) * d;
 	}
@@ -513,8 +513,10 @@ __global__ void reduce(float* g_idata, float* g_odata, unsigned int n) {
 }
 __global__ void avg_d(float* ad, float* cd, int size) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
-	const float d = cd[0] / (float)size;
-	ad[col] += d;
+	if (col < size) {
+		const float d = cd[0] / (float)size;
+		ad[col] += d;
+	}
 }
 __global__ void transpose(float* input, float* output, int n, int m) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;

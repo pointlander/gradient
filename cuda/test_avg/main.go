@@ -16,11 +16,7 @@ const code = `#include <unistd.h>
 int main() {
 	init();
 	for (int i = 0; i < 8; i++) {
-		if (i&1) { 
-			data.X[i] = -1;
-		} else {
-			data.X[i] = 1;
-		}
+		data.X[i] = (float)(i + 1);
 	}
 	gradient();
 	for (int i = 0; i < 8; i++) {
@@ -29,9 +25,7 @@ int main() {
 			exit(1);
 		}
 	}
-	
 	uninit();
-	sleep(1);
 }`
 
 func main() {
@@ -54,11 +48,7 @@ func main() {
 	set32.Add("data", 8, 1)
 	data := set32.ByName["data"]
 	for i := 0; i < data.S[0]*data.S[1]; i++ {
-		if i&1 == 1 {
-			data.X = append(data.X, -1)
-		} else {
-			data.X = append(data.X, 1)
-		}
+		data.X = append(data.X, float32(i+1))
 	}
 	loss32 := tf32.Avg(set32.Get("data"))
 	loss32(func(a *tf32.V) bool {
