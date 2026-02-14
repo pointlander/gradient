@@ -240,7 +240,7 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	reduce<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>((float *)device_%s, (float *)d_odata, %d);
 `, n, a.N, n)
 	fmt.Fprintf(context.Output, `	float *h_odata = (float*)malloc(blocksPerGrid * sizeof(float));
-	cudaMemcpy(h_odata, d_odata, blocksPerGrid * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_odata, d_odata, blocksPerGrid * sizeof(float), cudaMemcpyDeviceToHost);
 	float sum = 0;
 	for (int i = 0; i < blocksPerGrid; i++) {
 		sum += h_odata[i];
