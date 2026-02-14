@@ -1,4 +1,4 @@
-all: test_mul/mul test_add/add test_everett/everett test_quadratic/quadratic test_avg/avg
+all: test_mul/mul test_add/add test_everett/everett test_quadratic/quadratic test_avg/avg test_t/t
 
 test_mul/mul:
 	cd test_mul && go build
@@ -33,7 +33,7 @@ test_avg/avg:
 test_t/t:
 	cd test_t && go build
 	cd test_t && ./test_t
-	gcc -g -O1 -fsanitize=address -o test_t/t test_t/*.c -lOpenCL
+	nvcc -o test_t/t test_t/*.cu -lOpenCL
 	test_t/t
 
 test_xor/xor:
@@ -48,5 +48,5 @@ clean:
 	rm -f test_everett/everett.cu test_everett/everett test_everett/test_everett
 	rm -f test_quadratic/quadratic.cu test_quadratic/quadratic test_quadratic/test_quadratic
 	rm -f test_avg/avg.cu test_avg/avg test_avg/test_avg
-	rm -f test_t/t.c test_t/t test_t/test_t
+	rm -f test_t/t.cu test_t/t test_t/test_t
 	rm -f test_xor/xor.c test_xor/xor test_xor/test_xor

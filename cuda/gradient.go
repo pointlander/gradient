@@ -269,10 +269,19 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 
 	c.Allocate(context.Output)
 	defer c.Free(context.Output)
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16);
+	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    transpose<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %d, %d);
+`, a.S[1], a.S[0], a.N, c.N, a.S[1], a.S[0])
 
 	if k(&c) {
 		return true
 	}
+
+	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16, 16);
+	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x, (%d + threadsPerBlockd.y - 1) / threadsPerBlockd.y);
+    transpose_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
+`, a.S[1], a.S[0], c.N, a.N, a.S[1], a.S[0])
 
 	return false
 }
@@ -495,6 +504,20 @@ __global__ void avg_d(float* ad, float* cd, int size) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	const float d = cd[0] / (float)size;
 	ad[col] += d;
+}
+__global__ void transpose(float* input, float* output, int n, int m) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((col < n) && (row < m)) {
+		output[col * m + row] = input[row * n + col];
+	}
+}
+__global__ void transpose_d(float* input, float* output, int n, int m) {
+	int row = blockIdx.y * blockDim.y + threadIdx.y;
+	int col = blockIdx.x * blockDim.x + threadIdx.x;
+	if ((col < n) && (row < m)) {\
+		output[col * m + row] += input[row * n + col];
+	}
 }
 
 #define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
