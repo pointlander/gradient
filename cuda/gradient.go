@@ -181,7 +181,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
 	everett<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %d);
-`, c.S[0]*c.S[1], a.N, c.N, c.S[0]*c.S[1])
+`, a.S[0]*a.S[1], a.N, c.N, a.S[0]*a.S[1])
 
 	if k(&c) {
 		return true
