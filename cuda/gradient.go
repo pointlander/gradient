@@ -84,10 +84,10 @@ func NewV(node int, s ...int) V {
 
 // Allocate generates the code which allocates the variable
 func (v *V) Allocate(output *os.File) {
-	fmt.Fprintf(output, "\tint *device_%s = 0;\n", v.N)
+	fmt.Fprintf(output, "\tfloat *device_%s = 0;\n", v.N)
 	fmt.Fprintf(output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
 	fmt.Fprintf(output, "\tCHECK(cudaMemset(device_%s, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "\tint *device_%s_d = 0;\n", v.N)
+	fmt.Fprintf(output, "\tfloat *device_%s_d = 0;\n", v.N)
 	fmt.Fprintf(output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
 	fmt.Fprintf(output, "\tCHECK(cudaMemset(device_%s_d, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
 }
@@ -618,11 +618,11 @@ void uninit(void) {
 int gradient(void) {
 `)
 	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\tint *device_%s = 0;\n", value.N)
+		fmt.Fprintf(context.Output, "\tfloat *device_%s = 0;\n", value.N)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s, %s.X, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tint *device_%s_d = 0;\n", value.N)
+		fmt.Fprintf(context.Output, "\tfloat *device_%s_d = 0;\n", value.N)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, %s.D, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1])
