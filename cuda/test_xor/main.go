@@ -41,7 +41,7 @@ int main() {
 	for (int i = 0; i < b1.W*b1.H; i++) {
 		b1.X[i] = 0.0;
 	}
-	for (int i = 0; i < 256; i++) {
+	for (int i = 0; i < 512; i++) {
 		for (int i = 0; i < w0.W*w0.H; i++) {
 			w0.D[i] = 0;
 		}
