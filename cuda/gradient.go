@@ -492,10 +492,10 @@ __global__ void quadratic_d(float* a, float* b, float* cd, float* ad, float* bd,
 	}
 }
 __global__ void reduce(float* g_idata, float* g_odata, unsigned int n) {
-	extern __shared__ int sdata[];
+	extern __shared__ float sdata[];
 	unsigned int tid = threadIdx.x;
 	unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
-	int mySum = (i < n) ? g_idata[i] : 0;
+	float mySum = (i < n) ? g_idata[i] : 0;
 	if (i + blockDim.x < n) {
 		mySum += g_idata[i + blockDim.x];
 	}
