@@ -124,13 +124,13 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16);
 	dim3 blocksPerGrida((%d + threadsPerBlocka.x - 1) / threadsPerBlocka.x, (%d + threadsPerBlocka.y - 1) / threadsPerBlocka.y);
-    mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d);
-`, a.S[1], a.S[0], c.N, b.N, a.N, width, a.S[1], a.S[0], a.S[1])
+    mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
+`, a.S[1], a.S[0], c.N, b.N, a.N, width, a.S[1], a.S[0], a.S[1], b.S[1])
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16);
 	dim3 blocksPerGridb((%d + threadsPerBlockb.x - 1) / threadsPerBlockb.x, (%d + threadsPerBlockb.y - 1) / threadsPerBlockb.y);
-    mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d);
-`, b.S[1], b.S[0], c.N, a.N, b.N, width, b.S[1], b.S[0], b.S[0])
+    mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
+`, b.S[1], b.S[0], c.N, a.N, b.N, width, b.S[1], b.S[0], b.S[0], a.S[1])
 
 	return false
 }
@@ -396,25 +396,25 @@ __global__ void mul(float* a, float* b, float* c, int n, int m, int width, int a
 		c[bi * aw +  ai] = sum;
 	}
 }
-__global__ void mul_ad(float* cd, float* b, float* ad, int width, int r, int c, int cols) {
+__global__ void mul_ad(float* cd, float* b, float* ad, int width, int r, int c, int cols, int rows) {
 	int row = blockIdx.x * blockDim.x + threadIdx.x;
 	int col = blockIdx.y * blockDim.y + threadIdx.y;
-	printf("ad %%d %%d %%d %%d\n", row, col, r, c);
+	//printf("ad %%d %%d %%d %%d\n", row, col, r, c);
 	if ((row < r) && (col < c)) {
 		float sum = 0;
-		for (int i = 0; i < r; i++) {
+		for (int i = 0; i < rows; i++) {
 			sum += cd[row+i*cols]*b[i*width+col];
 		}
 		ad[row*width+col] += sum;
 	}
 }
-__global__ void mul_bd(float* cd, float* a, float* bd, int width, int r, int c, int cols) {
+__global__ void mul_bd(float* cd, float* a, float* bd, int width, int r, int c, int cols, int rows) {
 	int row = blockIdx.x * blockDim.x + threadIdx.x;
 	int col = blockIdx.y * blockDim.y + threadIdx.y;
-	printf("bd %%d %%d %%d %%d\n", row, col, r, c);
+	//printf("bd %%d %%d %%d %%d\n", row, col, r, c);
 	if ((row < r) && (col < c)) {
 		float sum = 0;
-		for (int i = 0; i < r; i++) {
+		for (int i = 0; i < rows; i++) {
 			sum += cd[i + row*cols]*a[i*width+col];
 		}
 		bd[row*width+col] += sum;
