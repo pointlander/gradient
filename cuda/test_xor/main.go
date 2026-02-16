@@ -13,7 +13,7 @@ import (
 
 const code = `#include <math.h>
 int main() {
-	srand(2);
+	srand(1);
 	init();
 	input.X[0] = 0;
 	input.X[1] = 0;

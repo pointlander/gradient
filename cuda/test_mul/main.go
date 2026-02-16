@@ -14,14 +14,14 @@ import (
 
 const code = `int main() {
 	init();
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 8; i++) {
 		data.X[i] = (float)(i+1);
 	}
 	for (int i = 0; i < 8; i++) {
 		data2.X[i] = (float)(i+1);
 	}
 	gradient();
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 8; i++) {
 		if (data.D[i] != d[i]) {
 			printf("d %%f != %%f;\n", data.D[i], d[i]);
 			exit(1);
@@ -46,7 +46,7 @@ func main() {
 	defer context.Output.Close()
 
 	set := cuda.NewSet()
-	set.Add(&context, "data", 2, 2)
+	set.Add(&context, "data", 2, 4)
 	set.Add(&context, "data2", 2, 4)
 
 	Mul := context.B(context.Mul)
@@ -54,7 +54,7 @@ func main() {
 	context.Gradient(set, loss)
 
 	set32 := tf32.NewSet()
-	set32.Add("data", 2, 2)
+	set32.Add("data", 2, 4)
 	set32.Add("data2", 2, 4)
 	data := set32.ByName["data"]
 	data2 := set32.ByName["data2"]
