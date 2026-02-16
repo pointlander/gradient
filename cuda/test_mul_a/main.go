@@ -15,7 +15,7 @@ import (
 const code = `int main() {
 	init();
 	int n = 1;
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		data.X[i] = (float)(n);
 		n++;
 	}
@@ -24,15 +24,15 @@ const code = `int main() {
 		n++;
 	}
 	gradient();
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (data.D[i] != d[i]) {
-			printf("d %%f != %%f;\n", data.D[i], d[i]);
+			printf("d %%d %%f != %%f;\n", i, data.D[i], d[i]);
 			exit(1);
 		}
 	}
 	for (int i = 0; i < 8; i++) {
 		if (data2.D[i] != d2[i]) {
-			printf("d2 %%f != %%f;\n", data2.D[i], d2[i]);
+			printf("d2 %%d %%f != %%f;\n", i, data2.D[i], d2[i]);
 			exit(1);
 		}
 	}
@@ -49,7 +49,7 @@ func main() {
 	defer context.Output.Close()
 
 	set := cuda.NewSet()
-	set.Add(&context, "data", 2, 4)
+	set.Add(&context, "data", 2, 2)
 	set.Add(&context, "data2", 2, 4)
 
 	Mul := context.B(context.Mul)
@@ -57,7 +57,7 @@ func main() {
 	context.Gradient(set, loss)
 
 	set32 := tf32.NewSet()
-	set32.Add("data", 2, 4)
+	set32.Add("data", 2, 2)
 	set32.Add("data2", 2, 4)
 	data := set32.ByName["data"]
 	data2 := set32.ByName["data2"]

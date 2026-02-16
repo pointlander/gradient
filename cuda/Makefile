@@ -1,10 +1,22 @@
-all: test_mul/mul test_add/add test_everett/everett test_quadratic/quadratic test_avg/avg test_t/t test_xor/xor
+all: test_mul/mul test_mul_a/mul test_mul_b/mul test_add/add test_everett/everett test_quadratic/quadratic test_avg/avg test_t/t test_xor/xor
 
 test_mul/mul:
 	cd test_mul && go build
 	cd test_mul && ./test_mul
 	nvcc -o test_mul/mul test_mul/*.cu
 	test_mul/mul
+
+test_mul_a/mul:
+	cd test_mul_a && go build
+	cd test_mul_a && ./test_mul_a
+	nvcc -o test_mul_a/mul test_mul_a/*.cu
+	test_mul_a/mul
+
+test_mul_b/mul:
+	cd test_mul_b && go build
+	cd test_mul_b && ./test_mul_b
+	nvcc -o test_mul_b/mul test_mul_b/*.cu
+	test_mul_b/mul
 
 test_add/add:
 	cd test_add && go build
@@ -44,6 +56,8 @@ test_xor/xor:
 
 clean:
 	rm -f test_mul/mul.cu test_mul/mul test_mul/test_mul
+	rm -f test_mul_a/mul.cu test_mul_a/mul test_mul_a/test_mul_a
+	rm -f test_mul_b/mul.cu test_mul_b/mul test_mul_b/test_mul_b
 	rm -f test_add/add.cu test_add/add test_add/test_add
 	rm -f test_everett/everett.cu test_everett/everett test_everett/test_everett
 	rm -f test_quadratic/quadratic.cu test_quadratic/quadratic test_quadratic/test_quadratic

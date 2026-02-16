@@ -19,7 +19,7 @@ const code = `int main() {
 		data.X[i] = (float)(n);
 		n++;
 	}
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		data2.X[i] = (float)(n);
 		n++;
 	}
@@ -30,7 +30,7 @@ const code = `int main() {
 			exit(1);
 		}
 	}
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		if (data2.D[i] != d2[i]) {
 			printf("d2 %%f != %%f;\n", data2.D[i], d2[i]);
 			exit(1);
@@ -50,7 +50,7 @@ func main() {
 
 	set := cuda.NewSet()
 	set.Add(&context, "data", 2, 4)
-	set.Add(&context, "data2", 2, 4)
+	set.Add(&context, "data2", 2, 2)
 
 	Mul := context.B(context.Mul)
 	loss := Mul(set.Get("data"), set.Get("data2"))
@@ -58,7 +58,7 @@ func main() {
 
 	set32 := tf32.NewSet()
 	set32.Add("data", 2, 4)
-	set32.Add("data2", 2, 4)
+	set32.Add("data2", 2, 2)
 	data := set32.ByName["data"]
 	data2 := set32.ByName["data2"]
 	n := 1
