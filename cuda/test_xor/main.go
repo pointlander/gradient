@@ -54,7 +54,9 @@ int main() {
 		for (int i = 0; i < b1.W*b1.H; i++) {
 			b1.D[i] = 0;
 		}
+		load();
 		gradient();
+		store();
 		for (int i = 0; i < w0.W*w0.H; i++) {
 			w0.X[i] -= .05*w0.D[i];
 		}

@@ -598,8 +598,6 @@ struct V {
 
 	fmt.Fprintf(context.Output, `void init(void) {
 `)
-	fmt.Fprintf(context.Output, `
-`)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\t%s.W = %d;\n", value.N, value.S[0])
 		fmt.Fprintf(context.Output, "\t%s.H = %d;\n", value.N, value.S[1])
@@ -607,6 +605,12 @@ struct V {
 		fmt.Fprintf(context.Output, "\t%s.D = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
 	}
 	fmt.Fprintf(context.Output, `}
+`)
+	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "float *device_%s = 0;\n", value.N)
+		fmt.Fprintf(context.Output, "float *device_%s_d = 0;\n", value.N)
+	}
+	fmt.Fprintf(context.Output, `
 void uninit(void) {
 `)
 	for _, value := range set.Weights {
@@ -615,18 +619,19 @@ void uninit(void) {
 	}
 	fmt.Fprintf(context.Output, `
 }
-int gradient(void) {
+void load() {
 `)
 	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\tfloat *device_%s = 0;\n", value.N)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s, %s.X, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tfloat *device_%s_d = 0;\n", value.N)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, %s.D, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1])
 	}
+	fmt.Fprintf(context.Output, `}
+int gradient(void) {
+`)
 	a(func(a *V) bool {
 		fmt.Fprintf(context.Output, "\t{\n")
 		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
@@ -643,6 +648,10 @@ int gradient(void) {
 		fmt.Fprintf(context.Output, "\t}\n")
 		return false
 	})
+	fmt.Fprintf(context.Output, `
+	return 0;
+}
+void store() {`)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s));\n", value.N)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
@@ -650,7 +659,6 @@ int gradient(void) {
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_d));\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
-	return 0;
 }
 `)
 	return

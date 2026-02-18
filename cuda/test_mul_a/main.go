@@ -23,7 +23,9 @@ const code = `int main() {
 		data2.X[i] = (float)(n);
 		n++;
 	}
+	load();
 	gradient();
+	store();
 	for (int i = 0; i < 4; i++) {
 		if (data.D[i] != d[i]) {
 			printf("d %%d %%f != %%f;\n", i, data.D[i], d[i]);

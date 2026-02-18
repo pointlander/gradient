@@ -21,7 +21,9 @@ const code = `int main() {
 			data.X[i] = 1;
 		}
 	}
+	load();
 	gradient();
+	store();
 	for (int i = 0; i < 8; i++) {
 		if (data.D[i] != d[i]) {
 			printf("d %%f != %%f;\n", data.D[i], d[i]);
