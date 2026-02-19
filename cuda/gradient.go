@@ -399,7 +399,6 @@ __global__ void mul(float* a, float* b, float* c, int n, int m, int width, int a
 __global__ void mul_ad(float* cd, float* b, float* ad, int width, int r, int c, int cols, int rows) {
 	int row = blockIdx.x * blockDim.x + threadIdx.x;
 	int col = blockIdx.y * blockDim.y + threadIdx.y;
-	//printf("ad %%d %%d %%d %%d\n", row, col, r, c);
 	if ((row < r) && (col < c)) {
 		float sum = 0;
 		for (int i = 0; i < rows; i++) {
@@ -411,7 +410,6 @@ __global__ void mul_ad(float* cd, float* b, float* ad, int width, int r, int c, 
 __global__ void mul_bd(float* cd, float* a, float* bd, int width, int r, int c, int cols, int rows) {
 	int row = blockIdx.x * blockDim.x + threadIdx.x;
 	int col = blockIdx.y * blockDim.y + threadIdx.y;
-	//printf("bd %%d %%d %%d %%d\n", row, col, r, c);
 	if ((row < r) && (col < c)) {
 		float sum = 0;
 		for (int i = 0; i < rows; i++) {
@@ -651,7 +649,8 @@ int gradient(void) {
 	fmt.Fprintf(context.Output, `
 	return 0;
 }
-void store() {`)
+void store() {
+`)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s));\n", value.N)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
