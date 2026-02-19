@@ -617,6 +617,20 @@ struct V {
 		fmt.Fprintf(context.Output, "float *device_%s_d = 0;\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
+void zero() {`)
+	for _, value := range set.Weights {
+		if value.Skip {
+			continue
+		}
+		fmt.Fprintf(context.Output, `
+	CHECK(cudaMemset(device_%s_d, 0, %d * sizeof(float)));
+`, value.N, value.S[0]*value.S[1])
+	}
+	fmt.Fprintf(context.Output, `
+}
+`)
+
+	fmt.Fprintf(context.Output, `
 void grad(float eta) {`)
 	for _, value := range set.Weights {
 		if value.Skip {

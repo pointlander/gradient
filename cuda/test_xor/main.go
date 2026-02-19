@@ -42,21 +42,10 @@ int main() {
 		b1.X[i] = 0.0;
 	}
 	load();
-	for (int i = 0; i < 64; i++) {
-		for (int i = 0; i < w0.W*w0.H; i++) {
-			w0.D[i] = 0;
-		}
-		for (int i = 0; i < b0.W*b0.H; i++) {
-			b0.D[i] = 0;
-		}
-		for (int i = 0; i < w1.W*w1.H; i++) {
-			w1.D[i] = 0;
-		}
-		for (int i = 0; i < b1.W*b1.H; i++) {
-			b1.D[i] = 0;
-		}
+	for (int i = 0; i < 128; i++) {
+		zero();
 		gradient();
-		grad(.01);
+		grad(.05);
 	}
 	store();
 	uninit();
