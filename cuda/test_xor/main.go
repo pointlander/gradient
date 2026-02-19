@@ -41,7 +41,8 @@ int main() {
 	for (int i = 0; i < b1.W*b1.H; i++) {
 		b1.X[i] = 0.0;
 	}
-	for (int i = 0; i < 512; i++) {
+	load();
+	for (int i = 0; i < 64; i++) {
 		for (int i = 0; i < w0.W*w0.H; i++) {
 			w0.D[i] = 0;
 		}
@@ -54,22 +55,10 @@ int main() {
 		for (int i = 0; i < b1.W*b1.H; i++) {
 			b1.D[i] = 0;
 		}
-		load();
 		gradient();
-		store();
-		for (int i = 0; i < w0.W*w0.H; i++) {
-			w0.X[i] -= .05*w0.D[i];
-		}
-		for (int i = 0; i < b0.W*b0.H; i++) {
-			b0.X[i] -= .05*b0.D[i];
-		}
-		for (int i = 0; i < w1.W*w1.H; i++) {
-			w1.X[i] -= .05*w1.D[i];
-		}
-		for (int i = 0; i < b1.W*b1.H; i++) {
-			b1.X[i] -= .05*b1.D[i];
-		}
+		grad(.01);
 	}
+	store();
 	uninit();
 }`
 
@@ -85,6 +74,8 @@ func main() {
 	set := cuda.NewSet()
 	set.Add(&context, "input", 2, 4)
 	set.Add(&context, "output", 1, 4)
+	set.ByName["input"].Skip = true
+	set.ByName["output"].Skip = true
 	set.Add(&context, "w0", 2, 4)
 	set.Add(&context, "b0", 4)
 	set.Add(&context, "w1", 8, 1)
