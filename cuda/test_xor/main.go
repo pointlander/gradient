@@ -45,7 +45,7 @@ int main() {
 	for (int i = 0; i < 128; i++) {
 		zero();
 		gradient();
-		grad(.05);
+		scalar(.05);
 	}
 	store();
 	uninit();

@@ -571,10 +571,10 @@ __global__ void dropout_d(float* input, float* output, float drop, ulong seed, i
 		}
 	}
 }
-__global__ void direct(float* X, float* D, float eta, int n) {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void scalar(float* w, const float* d, const float alpha, const int n) {
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if (x < n) {
-		X[x] = X[x] - eta*D[x];
+		w[x] -= alpha*d[x];
 	}
 }
 `)
@@ -619,9 +619,6 @@ struct V {
 	fmt.Fprintf(context.Output, `
 void zero() {`)
 	for _, value := range set.Weights {
-		if value.Skip {
-			continue
-		}
 		fmt.Fprintf(context.Output, `
 	CHECK(cudaMemset(device_%s_d, 0, %d * sizeof(float)));
 `, value.N, value.S[0]*value.S[1])
@@ -631,7 +628,7 @@ void zero() {`)
 `)
 
 	fmt.Fprintf(context.Output, `
-void grad(float eta) {`)
+void scalar(const float alpha) {`)
 	for _, value := range set.Weights {
 		if value.Skip {
 			continue
@@ -639,7 +636,7 @@ void grad(float eta) {`)
 		fmt.Fprintf(context.Output, `
 	dim3 threadsPerBlock_%s(16);
 	dim3 blocksPerGrid_%s((%d + threadsPerBlock_%s.x - 1) / threadsPerBlock_%s.x);
-	direct<<<blocksPerGrid_%s, threadsPerBlock_%s>>>((float *)device_%s, (float *)device_%s_d, eta, %d);
+	scalar<<<blocksPerGrid_%s, threadsPerBlock_%s>>>((float *)device_%s, (float *)device_%s_d, alpha, %d);
 `, value.N, value.N, value.S[0]*value.S[1], value.N, value.N, value.N, value.N, value.N, value.N, value.S[0]*value.S[1])
 	}
 	fmt.Fprintf(context.Output, `
@@ -689,6 +686,8 @@ int gradient(void) {
 void store() {
 `)
 	for _, value := range set.Weights {
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.X, device_%s, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
+			value.N, value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s));\n", value.N)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
 			value.N, value.N, value.S[0]*value.S[1])
