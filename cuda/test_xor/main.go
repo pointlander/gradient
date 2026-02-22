@@ -45,7 +45,7 @@ int main() {
 	for (int i = 0; i < 128; i++) {
 		zero();
 		gradient();
-		scalar(.05);
+		adam(i, 1E-2);
 	}
 	store();
 	uninit();

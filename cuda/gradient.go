@@ -577,6 +577,45 @@ __global__ void scalar(float* w, const float* d, const float alpha, const int n)
 		w[x] -= alpha*d[x];
 	}
 }
+const float B1 = 0.8;
+const float B2 = 0.89;
+__global__ void norm(float* g_idata, float* g_odata, unsigned int n) {
+	extern __shared__ float sdata[];
+	unsigned int tid = threadIdx.x;
+	unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
+	float mySum = (i < n) ? g_idata[i]*g_idata[i] : 0;
+	if (i + blockDim.x < n) {
+		const float input = g_idata[i + blockDim.x];
+		mySum += input * input;
+	}
+	sdata[tid] = mySum;
+	__syncthreads();
+	for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+		if (tid < s) {
+			sdata[tid] = mySum = mySum + sdata[tid + s];
+		}
+		__syncthreads();
+	}
+	if (tid == 0) {
+		g_odata[blockIdx.x] = sdata[0];
+	}
+}
+__global__ void adam(float* w, const float* d, float* m, float* v, const float scaling, const float b1, const float b2, const float alpha, const int n) {
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	if (x < n) {
+		const float g = d[x] * scaling;
+		const float mm = B1*m[x] + (1-B1)*g;
+		const float vv = B2*v[x] + (1-B2)*g*g;
+		m[x] = mm;
+		v[x] = vv;
+		const float mhat = mm / (1 - b1);
+		float vhat = vv / (1 - b2);
+		if (vhat < 0) {
+			vhat = 0;
+		}
+		w[x] -= alpha * mhat / (sqrt(vhat) + 1e-8);
+	}
+}
 `)
 	fmt.Fprintf(context.Output, `
 #define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
@@ -595,7 +634,9 @@ struct V {
 	int W;
 	int H;
 	float *X;
-	float *D;	
+	float *D;
+	float *M;
+	float *V;
 };
 `)
 	for _, value := range set.Weights {
@@ -609,12 +650,16 @@ struct V {
 		fmt.Fprintf(context.Output, "\t%s.H = %d;\n", value.N, value.S[1])
 		fmt.Fprintf(context.Output, "\t%s.X = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\t%s.D = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.M = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.V = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
 	}
 	fmt.Fprintf(context.Output, `}
 `)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "float *device_%s = 0;\n", value.N)
 		fmt.Fprintf(context.Output, "float *device_%s_d = 0;\n", value.N)
+		fmt.Fprintf(context.Output, "float *device_%s_m = 0;\n", value.N)
+		fmt.Fprintf(context.Output, "float *device_%s_v = 0;\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
 void zero() {`)
@@ -643,6 +688,53 @@ void scalar(const float alpha) {`)
 }
 `)
 	fmt.Fprintf(context.Output, `
+void adam(const int iteration, const float alpha) {
+	float sum = 0;
+`)
+	for _, value := range set.Weights {
+		if value.Skip {
+			continue
+		}
+		n := value.S[0] * value.S[1]
+		fmt.Fprintf(context.Output, `	int threadsPerBlock_%s = 256;
+	int blocksPerGrid_%s = (%d + (threadsPerBlock_%s * 2 - 1)) / (threadsPerBlock_%s * 2);
+	size_t sharedMemSize_%s = threadsPerBlock_%s * sizeof(float);
+	float *d_odata_%s;
+	cudaMalloc(&d_odata_%s, blocksPerGrid_%s * sizeof(float));
+	norm<<<blocksPerGrid_%s, threadsPerBlock_%s, sharedMemSize_%s>>>((float *)device_%s, (float *)d_odata_%s, %d);
+`, value.N, value.N, n, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, n)
+		fmt.Fprintf(context.Output, `	float *h_odata_%s = (float*)malloc(blocksPerGrid_%s * sizeof(float));
+	cudaMemcpy(h_odata_%s, d_odata_%s, blocksPerGrid_%s * sizeof(float), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < blocksPerGrid_%s; i++) {
+		sum += h_odata_%s[i];
+	}
+	free(h_odata_%s);
+	cudaFree(d_odata_%s);
+`, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N)
+	}
+	fmt.Fprintf(context.Output, `	const float norm = sqrt((float)sum);
+	const float b1 = pow(B1, (float)(iteration + 1));
+	const float b2 = pow(B2, (float)(iteration + 1));
+	float scaling = 1.0;
+	if (norm > 1.0) {
+		scaling = 1.0 / norm;
+	}
+`)
+	for _, value := range set.Weights {
+		if value.Skip {
+			continue
+		}
+		fmt.Fprintf(context.Output, `
+	dim3 threadsPerBlock_%s_a(16);
+	dim3 blocksPerGrid_%s_a((%d + threadsPerBlock_%s_a.x - 1) / threadsPerBlock_%s_a.x);
+	adam<<<blocksPerGrid_%s_a, threadsPerBlock_%s_a>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_m, (float *)device_%s_v, scaling, b1, b2, alpha, %d);
+`, value.N, value.N, value.S[0]*value.S[1], value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.S[0]*value.S[1])
+	}
+	fmt.Fprintf(context.Output, `
+}
+`)
+
+	fmt.Fprintf(context.Output, `
 void uninit(void) {
 `)
 	for _, value := range set.Weights {
@@ -659,6 +751,12 @@ void load() {
 			value.N, value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, %s.D, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
+			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_m, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_m, %s.M, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
+			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_v, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_v, %s.V, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1])
 	}
 	fmt.Fprintf(context.Output, `}
@@ -692,6 +790,12 @@ void store() {
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
 			value.N, value.N, value.S[0]*value.S[1])
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_d));\n", value.N)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.M, device_%s_m, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
+			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_m));\n", value.N)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.V, device_%s_v, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
+			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_v));\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `
 }
