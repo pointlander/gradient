@@ -12,11 +12,39 @@ import (
 	"github.com/pointlander/gradient/cuda"
 )
 
+const data = `
+struct Example {
+	int InputWidth;
+	int InputHeight;
+	char* Input;
+	int OutputWidth;
+	int OutputHeight;
+	char* Output;
+};
+struct Set {
+	int NumberTest;
+	struct Example* Test;
+	int NumberTrain;
+	struct Example* Train;
+};
+struct Set* set;
+void Load() {
+`
+
 const code = `#include <math.h>
 int main() {
 	srand(1);
+	Load();
 	init();
 	float factor = sqrt(2.0 / ((float)i.W));
+	int index = 0;
+	for (int cc = 0; cc < set[0].Train[0].InputHeight; cc++) {
+		for (int c = 0; c < set[0].Train[0].InputWidth; c++) {
+			printf("%%c", set[0].Train[0].Input[index] + '0');
+			index++;
+		}
+		printf("\n");
+	}
 	/*for (int c = 0; c < i.W*i.H; c++) {
 		i.X[c] = factor * (2 * (float)rand() / ((float)RAND_MAX+1.0) - 1);
 	}*/
@@ -76,7 +104,6 @@ func Load() []Set {
 
 func main() {
 	s := Load()
-	_ = s
 	context := cuda.Context{}
 	var err error
 	context.Output, err = os.Create("sym.cu")
@@ -113,5 +140,83 @@ func main() {
 	printf("%%f\n", output[0]);
 }
 `)
+	fmt.Fprintf(context.Output, data)
+	fmt.Fprintf(context.Output, "\tset = (Set*)calloc(%d, sizeof(struct Set));\n", len(s))
+	index := 0
+	for i, v := range s {
+		fmt.Fprintf(context.Output, "\tset[%d].NumberTest = %d;\n", i, len(v.Test))
+		fmt.Fprintf(context.Output, "\tset[%d].Test = (struct Example*)calloc(%d, sizeof(struct Example));\n", i, len(v.Test))
+		for ii, test := range v.Test {
+			width := len(test.Input[0])
+			height := len(test.Input)
+			fmt.Fprintf(context.Output, "\tset[%d].Test[%d].InputWidth = %d;\n", i, ii, width)
+			fmt.Fprintf(context.Output, "\tset[%d].Test[%d].InputHeight = %d;\n", i, ii, height)
+			fmt.Fprintf(context.Output, "\tstatic char a_%d[] = {", index)
+			for r, row := range test.Input {
+				for c, value := range row {
+					fmt.Fprintf(context.Output, "%d", value)
+					if !(c == len(row)-1 && r == len(test.Input)-1) {
+						fmt.Fprintf(context.Output, ",")
+					}
+				}
+			}
+			fmt.Fprintf(context.Output, "};\n")
+			fmt.Fprintf(context.Output, "\tset[%d].Test[%d].Input = a_%d;\n", i, ii, index)
+			index++
+			width = len(test.Output[0])
+			height = len(test.Output)
+			fmt.Fprintf(context.Output, "\tset[%d].Test[%d].OutputWidth = %d;\n", i, ii, width)
+			fmt.Fprintf(context.Output, "\tset[%d].Test[%d].OutputHeight = %d;\n", i, ii, height)
+			fmt.Fprintf(context.Output, "\tstatic char a_%d[] = {", index)
+			for r, row := range test.Input {
+				for c, value := range row {
+					fmt.Fprintf(context.Output, "%d", value)
+					if !(c == len(row)-1 && r == len(test.Input)-1) {
+						fmt.Fprintf(context.Output, ",")
+					}
+				}
+			}
+			fmt.Fprintf(context.Output, "};\n")
+			fmt.Fprintf(context.Output, "\tset[%d].Test[%d].Output = a_%d;\n", i, ii, index)
+			index++
+		}
+		fmt.Fprintf(context.Output, "\tset[%d].NumberTrain = %d;\n", i, len(v.Train))
+		fmt.Fprintf(context.Output, "\tset[%d].Train = (struct Example*)calloc(%d, sizeof(struct Example));\n", i, len(v.Train))
+		for ii, train := range v.Train {
+			width := len(train.Input[0])
+			height := len(train.Input)
+			fmt.Fprintf(context.Output, "\tset[%d].Train[%d].InputWidth = %d;\n", i, ii, width)
+			fmt.Fprintf(context.Output, "\tset[%d].Train[%d].InputHeight = %d;\n", i, ii, height)
+			fmt.Fprintf(context.Output, "\tstatic char a_%d[] = {", index)
+			for r, row := range train.Input {
+				for c, value := range row {
+					fmt.Fprintf(context.Output, "%d", value)
+					if !(c == len(row)-1 && r == len(train.Input)-1) {
+						fmt.Fprintf(context.Output, ",")
+					}
+				}
+			}
+			fmt.Fprintf(context.Output, "};\n")
+			fmt.Fprintf(context.Output, "\tset[%d].Train[%d].Input = a_%d;\n", i, ii, index)
+			index++
+			width = len(train.Output[0])
+			height = len(train.Output)
+			fmt.Fprintf(context.Output, "\tset[%d].Train[%d].OutputWidth = %d;\n", i, ii, width)
+			fmt.Fprintf(context.Output, "\tset[%d].Train[%d].OutputHeight = %d;\n", i, ii, height)
+			fmt.Fprintf(context.Output, "\tstatic char a_%d[] = {", index)
+			for r, row := range train.Input {
+				for c, value := range row {
+					fmt.Fprintf(context.Output, "%d", value)
+					if !(c == len(row)-1 && r == len(train.Input)-1) {
+						fmt.Fprintf(context.Output, ",")
+					}
+				}
+			}
+			fmt.Fprintf(context.Output, "};\n")
+			fmt.Fprintf(context.Output, "\tset[%d].Train[%d].Output = a_%d;\n", i, ii, index)
+			index++
+		}
+	}
+	fmt.Fprintf(context.Output, "}\n")
 	fmt.Fprintf(context.Output, code)
 }
