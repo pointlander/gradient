@@ -51,13 +51,13 @@ test_t/t:
 test_xor/xor:
 	cd test_xor && go build
 	cd test_xor && ./test_xor
-	nvcc -o test_xor/xor test_xor/*.cu -lm
+	nvcc -o test_xor/xor test_xor/*.cu
 	test_xor/xor
 
 symmetry/sym:
 	cd symmetry && go build
 	cd symmetry && ./symmetry
-	nvcc -o symmetry/sym symmetry/*.cu -lm
+	nvcc -o symmetry/sym symmetry/*.cu
 	symmetry/sym
 
 clean:
