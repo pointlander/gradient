@@ -32,26 +32,66 @@ void Load() {
 `
 
 const code = `#include <math.h>
+double gauss(void) {
+	double x = (double)rand() / RAND_MAX;
+    double y = (double)rand() / RAND_MAX;
+    double z = sqrt(-2 * log(x)) * cos(2 * M_PI * y);
+	return z;
+}
 int main() {
 	srand(1);
 	Load();
 	init();
-	float factor = sqrt(2.0 / ((float)i.W));
-	int index = 0;
-	for (int cc = 0; cc < set[0].Train[0].InputHeight; cc++) {
-		for (int c = 0; c < set[0].Train[0].InputWidth; c++) {
-			printf("%%c", set[0].Train[0].Input[index] + '0');
-			index++;
+
+	int idx = 0;
+	for (int ccc = 0; ccc < set[0].NumberTrain; ccc++) {
+		int index = 0;
+		for (int cc = 0; cc < set[0].Train[ccc].InputHeight; cc++) {
+			for (int c = 0; c < set[0].Train[ccc].InputWidth; c++) {
+				printf("%%c", set[0].Train[ccc].Input[index] + '0');
+				x.X[idx+c] = .1;
+				x.X[idx+30+cc] = .1;
+				x.X[idx+30+30+set[0].Train[ccc].Input[index]] = .1; 
+				index++;
+				idx += 30+30+10+1;
+			}
+			for (int c = set[0].Train[ccc].InputWidth; c < 30; c++) {
+				printf("f");
+				x.X[idx+c] = .1;
+				x.X[idx+30+cc] = .1;
+				x.X[idx+30+30+10] = .1; 
+				idx += 30+30+10+1;
+			}
+			printf("\n");
+		}
+		for (int cc = set[0].Train[ccc].InputHeight; cc < 30; cc++) {
+			for (int c = 0; c < 30; c++) {
+				printf("f");
+				x.X[idx+c] = .1;
+				x.X[idx+30+cc] = .1;
+				x.X[idx+30+30+10] = .1; 
+				idx += 30+30+10+1;
+			}
+			printf("\n");
 		}
 		printf("\n");
 	}
-	/*for (int c = 0; c < i.W*i.H; c++) {
-		i.X[c] = factor * (2 * (float)rand() / ((float)RAND_MAX+1.0) - 1);
-	}*/
-	factor = sqrt(2.0 / ((float)x.W));
+	float factor = sqrt(2.0 / ((float)i.W));
+	for (int c = 0; c < i.W*i.H; c++) {
+		i.X[c] = (float)gauss() * factor * .01;
+	}
+	factor = sqrt(2.0 / ((float)w0.W));
+	for (int c = 0; c < w0.W*w0.H; c++) {
+		w0.X[c] = factor * (2 * (float)rand() / ((float)RAND_MAX+1.0) - 1);
+	}
+	factor = sqrt(2.0 / ((float)w1.W));
+	for (int c = 0; c < w1.W*w1.H; c++) {
+		w1.X[c] = factor * (2 * (float)rand() / ((float)RAND_MAX+1.0) - 1);
+	}
+	/*factor = sqrt(2.0 / ((float)x.W));
 	for (int c = 0; c < x.W*x.H; c++) {
 		x.X[c] = factor * (2 * (float)rand() / ((float)RAND_MAX+1.0) - 1);
-	}
+	}*/
 	load();
 	for (int i = 0; i < 128; i++) {
 		zero();
@@ -113,15 +153,16 @@ func main() {
 	defer context.Output.Close()
 
 	set := cuda.NewSet()
-	set.Add(&context, "input", 2, 4)
-	set.Add(&context, "output", 1, 4)
-	set.ByName["input"].Skip = true
-	set.ByName["output"].Skip = true
-	set.Add(&context, "i", 7, 4000)
-	set.Add(&context, "x", 32, 4000)
+	set.Add(&context, "w0", (30 + 30 + 10 + 1), (30 + 30 + 10 + 1))
+	set.Add(&context, "b0", (30 + 30 + 10 + 1))
+	set.Add(&context, "w1", 2*(30+30+10+1), (30 + 30 + 10 + 1))
+	set.Add(&context, "b1", (30 + 30 + 10 + 1))
+	set.Add(&context, "i", 7, 30*30*len(s[0].Train))
+	set.Add(&context, "x", (30 + 30 + 10 + 1), 30*30*len(s[0].Train))
+	set.ByName["x"].Skip = true
 
 	Mul := context.B(context.Mul)
-	//Add := context.B(context.Add)
+	Add := context.B(context.Add)
 	//Everett := context.U(context.Everett)
 	Quadratic := context.B(context.Quadratic)
 	Avg := context.U(context.Avg)
@@ -132,8 +173,10 @@ func main() {
 		"drop": &drop,
 	}
 
-	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(set.Get("x"))))
-	loss := Avg(Quadratic(set.Get("x"), sa))
+	l0 := Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0"))
+	//l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
+	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(l0)))
+	loss := Avg(Quadratic(l0, sa))
 	context.Gradient(set, loss)
 
 	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {
