@@ -174,9 +174,9 @@ func main() {
 	}
 
 	l0 := Everett(Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0")))
-	//l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
-	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(l0)))
-	loss := Avg(Quadratic(l0, sa))
+	l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
+	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(l1)))
+	loss := Avg(Quadratic(l1, sa))
 	context.Gradient(set, loss)
 
 	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {

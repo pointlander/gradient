@@ -118,6 +118,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
     mul<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d, %d, %d);
 `, N, M, a.N, b.N, c.N, N, M, width, N)
+	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
 	if k(&c) {
 		return true
@@ -127,11 +128,13 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	dim3 blocksPerGrida((%d + threadsPerBlocka.x - 1) / threadsPerBlocka.x, (%d + threadsPerBlocka.y - 1) / threadsPerBlocka.y);
     mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
 `, a.S[1], a.S[0], c.N, b.N, a.N, width, a.S[1], a.S[0], a.S[1], b.S[1])
+	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16);
 	dim3 blocksPerGridb((%d + threadsPerBlockb.x - 1) / threadsPerBlockb.x, (%d + threadsPerBlockb.y - 1) / threadsPerBlockb.y);
     mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
-`, b.S[1], b.S[0], c.N, a.N, b.N, width, b.S[1], b.S[0], b.S[0], a.S[1])
+`, a.S[1], b.S[0], c.N, a.N, b.N, width, b.S[1], b.S[0], b.S[0], a.S[1])
+	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
 	return false
 }
