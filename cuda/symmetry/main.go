@@ -163,7 +163,7 @@ func main() {
 
 	Mul := context.B(context.Mul)
 	Add := context.B(context.Add)
-	//Everett := context.U(context.Everett)
+	Everett := context.U(context.Everett)
 	Quadratic := context.B(context.Quadratic)
 	Avg := context.U(context.Avg)
 	Dropout := context.U(context.Dropout)
@@ -173,7 +173,7 @@ func main() {
 		"drop": &drop,
 	}
 
-	l0 := Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0"))
+	l0 := Everett(Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0")))
 	//l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
 	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(l0)))
 	loss := Avg(Quadratic(l0, sa))
