@@ -13,6 +13,7 @@ type (
 	// V is a tensor value
 	V struct {
 		Skip bool
+		Set  int
 		N    string // the name
 		S    []int  // the shape
 	}
@@ -616,9 +617,9 @@ __global__ void norm(float* g_idata, float* g_odata, unsigned int n) {
 		g_odata[blockIdx.x] = sdata[0];
 	}
 }
-__global__ void adam(float* w, const float* d, float* m, float* v, const float scaling, const float b1, const float b2, const float alpha, const int n) {
+__global__ void adam(float* w, const float* d, float* m, float* v, const float scaling, const float b1, const float b2, const float alpha, const int n, const int set) {
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (x < n) {
+	if ((x > set) && (x < n)) {
 		const float g = d[x] * scaling;
 		const float mm = B1*m[x] + (1-B1)*g;
 		const float vv = B2*v[x] + (1-B2)*g*g;
@@ -744,8 +745,8 @@ void adam(const int iteration, const float alpha) {
 		fmt.Fprintf(context.Output, `
 	dim3 threadsPerBlock_%s_a(16);
 	dim3 blocksPerGrid_%s_a((%d + threadsPerBlock_%s_a.x - 1) / threadsPerBlock_%s_a.x);
-	adam<<<blocksPerGrid_%s_a, threadsPerBlock_%s_a>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_m, (float *)device_%s_v, scaling, b1, b2, alpha, %d);
-`, value.N, value.N, value.S[0]*value.S[1], value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.S[0]*value.S[1])
+	adam<<<blocksPerGrid_%s_a, threadsPerBlock_%s_a>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_m, (float *)device_%s_v, scaling, b1, b2, alpha, %d, %d);
+`, value.N, value.N, value.S[0]*value.S[1], value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.S[0]*value.S[1], value.Set)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 	}
 	fmt.Fprintf(context.Output, `
