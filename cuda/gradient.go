@@ -199,7 +199,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
 	everett_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, %d);
-`, c.S[0]*c.S[1], c.N, c.N, a.N, c.S[0]*c.S[1])
+`, a.S[0]*a.S[1], c.N, c.N, a.N, a.S[0]*a.S[1])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
 	return false
@@ -477,13 +477,21 @@ __global__ void everett(float* a, float* c, int n) {
 		}
 	}
 }
-__global__ void everett_d(float *c, float* cd, float* ad, int n) {
-	int col = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void everett_d(const float *c, const float* cd, float* ad, const int n) {
+	const int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < n) {
-		const int idxA = col&~1U;
-		const int idxB = col|1U;
-		if ((c[col] != 0) || ((c[idxA] == 0) && (c[idxB] == 0))) {
-			ad[col>>1] += cd[col];
+		const int idx = 2 * col;
+		const int idxA = idx&~1U;
+		const int idxB = idx|1U;
+		if ((c[idx] != 0) || ((c[idxA] == 0) && (c[idxB] == 0))) {
+			ad[col] += cd[idx];
+		}
+
+		const int idx2 = idx + 1;
+		const int idx2A = idx&~1U;
+		const int idx2B = idx|1U;
+		if ((c[idx2] != 0) || ((c[idx2A] == 0) && (c[idx2B] == 0))) {
+			ad[col] += cd[idx2];
 		}
 	}
 }
