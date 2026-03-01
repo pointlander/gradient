@@ -108,6 +108,40 @@ int main() {
 		}
 		printf("\n");
 	}
+
+	for (int ccc = 0; ccc < set[0].NumberTest; ccc++) {
+		int index = 0;
+		for (int cc = 0; cc < set[0].Test[ccc].InputHeight; cc++) {
+			for (int c = 0; c < set[0].Test[ccc].InputWidth; c++) {
+				printf("%%c", set[0].Test[ccc].Input[index] + '0');
+				x.X[idx+c] = .1;
+				x.X[idx+30+cc] = .1;
+				x.X[idx+30+30+set[0].Test[ccc].Input[index]] = .1;
+				index++;
+				idx += 30+30+10+1;
+			}
+			for (int c = set[0].Test[ccc].InputWidth; c < 30; c++) {
+				printf("f");
+				x.X[idx+c] = .1;
+				x.X[idx+30+cc] = .1;
+				x.X[idx+30+30+10] = .1;
+				idx += 30+30+10+1;
+			}
+			printf("\n");
+		}
+		for (int cc = set[0].Test[ccc].InputHeight; cc < 30; cc++) {
+			for (int c = 0; c < 30; c++) {
+				printf("f");
+				x.X[idx+c] = .1;
+				x.X[idx+30+cc] = .1;
+				x.X[idx+30+30+10] = .1;
+				idx += 30+30+10+1;
+			}
+			printf("\n");
+		}
+		printf("\n");
+	}
+	
 	float factor = sqrt(2.0 / ((float)i.W));
 	for (int c = 0; c < i.W*i.H; c++) {
 		i.X[c] = (float)gauss() * factor * .01;
@@ -125,6 +159,12 @@ int main() {
 		zero();
 		gradient();
 		adam(i, 1E-3);
+	}
+	for (int c = 30*30*set[0].NumberTrain; c < y.H; c++) {
+		for (int cc = 0; cc < y.W; cc++) {
+			printf("%%f ", y.X[c*y.W + cc]);
+		}
+		printf("\n");
 	}
 	store();
 	uninit();
@@ -185,11 +225,12 @@ func main() {
 	set.Add(&context, "b0", (30 + 30 + 10 + 1))
 	set.Add(&context, "w1", 2*(30+30+10+1), (30 + 30 + 10 + 1))
 	set.Add(&context, "b1", (30 + 30 + 10 + 1))
-	set.Add(&context, "i", 7, 30*30*len(s[0].Train))
-	set.Add(&context, "x", (30 + 30 + 10 + 1), 30*30*len(s[0].Train))
-	set.Add(&context, "y", (30 + 30 + 10 + 1), 30*30*len(s[0].Train))
+	set.Add(&context, "i", 7, 30*30*(len(s[0].Train)+len(s[0].Test)))
+	set.Add(&context, "x", (30 + 30 + 10 + 1), 30*30*(len(s[0].Train)+len(s[0].Test)))
+	set.Add(&context, "y", (30 + 30 + 10 + 1), 30*30*(len(s[0].Train)+len(s[0].Test)))
 	set.ByName["x"].Skip = true
-	set.ByName["y"].Skip = true
+	set.ByName["y"].Skip = false
+	set.ByName["y"].Set = (30 + 30 + 10 + 1) * 30 * 30 * len(s[0].Train)
 
 	Mul := context.B(context.Mul)
 	Add := context.B(context.Add)
