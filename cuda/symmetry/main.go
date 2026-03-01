@@ -160,13 +160,13 @@ int main() {
 		gradient();
 		adam(i, 1E-3);
 	}
+	store();
 	for (int c = 30*30*set[0].NumberTrain; c < y.H; c++) {
 		for (int cc = 0; cc < y.W; cc++) {
 			printf("%%f ", y.X[c*y.W + cc]);
 		}
 		printf("\n");
 	}
-	store();
 	uninit();
 }`
 
