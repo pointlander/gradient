@@ -96,7 +96,7 @@ func (v *V) Allocate(typ string, output *os.File) {
 	t, err := template.New("cuda").Parse(`	{{.Type}} *device_{{.Name}} = 0;
 	CHECK(cudaMalloc((void**)&device_{{.Name}}, {{.Size}} * sizeof({{.Type}})));
 	CHECK(cudaMemset(device_{{.Name}}, 0, {{.Size}} * sizeof({{.Type}})));
-	float *device_{{.Name}}_d = 0;
+	{{.Type}} *device_{{.Name}}_d = 0;
 	CHECK(cudaMalloc((void**)&device_{{.Name}}_d, {{.Size}} * sizeof({{.Type}})));
 	CHECK(cudaMemset(device_{{.Name}}_d, 0, {{.Size}} * sizeof({{.Type}})));
 `)
