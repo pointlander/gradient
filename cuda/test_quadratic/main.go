@@ -39,7 +39,7 @@ const code = `int main() {
 }`
 
 func main() {
-	context := cuda.Context{}
+	context := cuda.Context{Type: "float"}
 	var err error
 	context.Output, err = os.Create("quadratic.cu")
 	if err != nil {

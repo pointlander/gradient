@@ -212,7 +212,7 @@ func Load() []Set {
 
 func main() {
 	s := Load()
-	context := cuda.Context{}
+	context := cuda.Context{Type: "float"}
 	var err error
 	context.Output, err = os.Create("sym.cu")
 	if err != nil {

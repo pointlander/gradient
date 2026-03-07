@@ -52,7 +52,7 @@ int main() {
 }`
 
 func main() {
-	context := cuda.Context{}
+	context := cuda.Context{Type: "float"}
 	var err error
 	context.Output, err = os.Create("xor.cu")
 	if err != nil {

@@ -7,6 +7,7 @@ package cuda
 import (
 	"fmt"
 	"os"
+	"text/template"
 )
 
 type (
@@ -71,6 +72,7 @@ func (s *Set) Get(name string) Meta {
 type Context struct {
 	Output *os.File
 	Node   int
+	Type   string
 }
 
 // NewV create a new tensor value
@@ -85,19 +87,49 @@ func NewV(node int, s ...int) V {
 }
 
 // Allocate generates the code which allocates the variable
-func (v *V) Allocate(output *os.File) {
-	fmt.Fprintf(output, "\tfloat *device_%s = 0;\n", v.N)
-	fmt.Fprintf(output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "\tCHECK(cudaMemset(device_%s, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "\tfloat *device_%s_d = 0;\n", v.N)
-	fmt.Fprintf(output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
-	fmt.Fprintf(output, "\tCHECK(cudaMemset(device_%s_d, 0, %d * sizeof(float)));\n", v.N, v.S[0]*v.S[1])
+func (v *V) Allocate(typ string, output *os.File) {
+	type Data struct {
+		Type string
+		Name string
+		Size int
+	}
+	t, err := template.New("cuda").Parse(`	{{.Type}} *device_{{.Name}} = 0;
+	CHECK(cudaMalloc((void**)&device_{{.Name}}, {{.Size}} * sizeof({{.Type}})));
+	CHECK(cudaMemset(device_{{.Name}}, 0, {{.Size}} * sizeof({{.Type}})));
+	float *device_{{.Name}}_d = 0;
+	CHECK(cudaMalloc((void**)&device_{{.Name}}_d, {{.Size}} * sizeof({{.Type}})));
+	CHECK(cudaMemset(device_{{.Name}}_d, 0, {{.Size}} * sizeof({{.Type}})));
+`)
+	if err != nil {
+		panic(err)
+	}
+	err = t.Execute(output, Data{
+		Type: typ,
+		Name: v.N,
+		Size: v.S[0] * v.S[1],
+	})
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Free generates the code to free the variable
 func (v *V) Free(output *os.File) {
-	fmt.Fprintf(output, "\tCHECK(cudaFree(device_%s_d));\n", v.N)
-	fmt.Fprintf(output, "\tCHECK(cudaFree(device_%s));\n", v.N)
+	type Data struct {
+		Name string
+	}
+	t, err := template.New("cuda").Parse(`	CHECK(cudaFree(device_{{.Name}}_d));
+	CHECK(cudaFree(device_{{.Name}}));
+`)
+	if err != nil {
+		panic(err)
+	}
+	err = t.Execute(output, Data{
+		Name: v.N,
+	})
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Mul multiplies two tensors
@@ -113,7 +145,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	N := a.S[1]
 	M := b.S[1]
 
-	c.Allocate(context.Output)
+	c.Allocate(context.Type, context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
@@ -153,7 +185,7 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 	M := a.S[1]
 	N := a.S[0]
 
-	c.Allocate(context.Output)
+	c.Allocate(context.Type, context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
@@ -184,7 +216,7 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 func (context *Context) Everett(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(node, 2*a.S[0], a.S[1])
 
-	c.Allocate(context.Output)
+	c.Allocate(context.Type, context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
@@ -216,7 +248,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 	}
 	c := NewV(node, a.S[1])
 
-	c.Allocate(context.Output)
+	c.Allocate(context.Type, context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
@@ -242,7 +274,7 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	c := NewV(node, 1)
 	n := a.S[0] * a.S[1]
 
-	c.Allocate(context.Output)
+	c.Allocate(context.Type, context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	int threadsPerBlock = 256;
 	int blocksPerGrid = (%d + (threadsPerBlock * 2 - 1)) / (threadsPerBlock * 2);
@@ -281,7 +313,7 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 func (context *Context) T(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(node, a.S[1], a.S[0])
 
-	c.Allocate(context.Output)
+	c.Allocate(context.Type, context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
@@ -311,7 +343,7 @@ func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[s
 	}
 	c := NewV(node, a.S[0], a.S[1])
 
-	c.Allocate(context.Output)
+	c.Allocate(context.Type, context.Output)
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, "\tstatic uint lfsr = 1;\n")
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
