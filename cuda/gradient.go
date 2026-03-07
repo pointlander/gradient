@@ -149,7 +149,7 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
-    mul<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d, %d, %d);
+    mul<<<blocksPerGrid, threadsPerBlock>>>(device_%s, device_%s, device_%s, %d, %d, %d, %d);
 `, N, M, a.N, b.N, c.N, N, M, width, N)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -159,13 +159,13 @@ func (context *Context) Mul(k Continuation, node int, a, b *V, options ...map[st
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16);
 	dim3 blocksPerGrida((%d + threadsPerBlocka.x - 1) / threadsPerBlocka.x, (%d + threadsPerBlocka.y - 1) / threadsPerBlocka.y);
-    mul_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
+    mul_ad<<<blocksPerGrida, threadsPerBlocka>>>(device_%s_d, device_%s, device_%s_d, %d, %d, %d, %d, %d);
 `, a.S[1], a.S[0], c.N, b.N, a.N, width, a.S[1], a.S[0], a.S[1], b.S[1])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16, 16);
 	dim3 blocksPerGridb((%d + threadsPerBlockb.x - 1) / threadsPerBlockb.x, (%d + threadsPerBlockb.y - 1) / threadsPerBlockb.y);
-    mul_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s, (float *)device_%s_d, %d, %d, %d, %d, %d);
+    mul_bd<<<blocksPerGridb, threadsPerBlockb>>>(device_%s_d, device_%s, device_%s_d, %d, %d, %d, %d, %d);
 `, a.S[1], b.S[0], c.N, a.N, b.N, width, b.S[1], b.S[0], b.S[0], a.S[1])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -189,7 +189,7 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
-    add<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d);
+    add<<<blocksPerGrid, threadsPerBlock>>>(device_%s, device_%s, device_%s, %d, %d);
 `, N, M, a.N, b.N, c.N, N, M)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -199,13 +199,13 @@ func (context *Context) Add(k Continuation, node int, a, b *V, options ...map[st
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlocka(16, 16);
 	dim3 blocksPerGrida((%d + threadsPerBlocka.x - 1) / threadsPerBlocka.x, (%d + threadsPerBlocka.y - 1) / threadsPerBlocka.y);
-    add_ad<<<blocksPerGrida, threadsPerBlocka>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
+    add_ad<<<blocksPerGrida, threadsPerBlocka>>>(device_%s_d, device_%s_d, %d, %d);
 `, a.S[0], a.S[1], c.N, a.N, N, M)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockb(16);
 	dim3 blocksPerGridb((%d + threadsPerBlockb.x - 1) / threadsPerBlockb.x);
-    add_bd<<<blocksPerGridb, threadsPerBlockb>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
+    add_bd<<<blocksPerGridb, threadsPerBlockb>>>(device_%s_d, device_%s_d, %d, %d);
 `, b.S[0], c.N, b.N, N, M)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -220,7 +220,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
-	everett<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %d);
+	everett<<<blocksPerGrid, threadsPerBlock>>>(device_%s, device_%s, %d);
 `, a.S[0]*a.S[1], a.N, c.N, a.S[0]*a.S[1])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -230,7 +230,7 @@ func (context *Context) Everett(k Continuation, node int, a *V, options ...map[s
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
-	everett_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, %d);
+	everett_d<<<blocksPerGridd, threadsPerBlockd>>>(device_%s, device_%s_d, device_%s_d, %d);
 `, a.S[0]*a.S[1], c.N, c.N, a.N, a.S[0]*a.S[1])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -252,7 +252,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
-	quadratic<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, (float *)device_%s, %d, %d);
+	quadratic<<<blocksPerGrid, threadsPerBlock>>>(device_%s, device_%s, device_%s, %d, %d);
 `, c.S[0], c.N, a.N, b.N, c.S[0], width)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -262,7 +262,7 @@ func (context *Context) Quadratic(k Continuation, node int, a, b *V, options ...
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16, 16);
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x, (%d + threadsPerBlockd.y - 1) / threadsPerBlockd.y);
-	quadratic_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s, (float *)device_%s, (float *)device_%s_d, (float *)device_%s_d, (float *)device_%s_d, %d, %d, %d);
+	quadratic_d<<<blocksPerGridd, threadsPerBlockd>>>(device_%s, device_%s, device_%s_d, device_%s_d, device_%s_d, %d, %d, %d);
 `, a.S[0], a.S[1], a.N, b.N, c.N, a.N, b.N, a.S[0], a.S[1], width)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -278,23 +278,23 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	int threadsPerBlock = 256;
 	int blocksPerGrid = (%d + (threadsPerBlock * 2 - 1)) / (threadsPerBlock * 2);
-	size_t sharedMemSize = threadsPerBlock * sizeof(float);
-	float *d_odata;
-	CHECK(cudaMalloc(&d_odata, blocksPerGrid * sizeof(float)));
-	reduce<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>((float *)device_%s, (float *)d_odata, %d);
-`, n, a.N, n)
+	size_t sharedMemSize = threadsPerBlock * sizeof(%s);
+	%s *d_odata;
+	CHECK(cudaMalloc(&d_odata, blocksPerGrid * sizeof(%s)));
+	reduce<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>(device_%s, d_odata, %d);
+`, n, context.Type, context.Type, context.Type, a.N, n)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
-	fmt.Fprintf(context.Output, `	float *h_odata = (float*)malloc(blocksPerGrid * sizeof(float));
-	CHECK(cudaMemcpy(h_odata, d_odata, blocksPerGrid * sizeof(float), cudaMemcpyDeviceToHost));
-	float sum = 0;
+	fmt.Fprintf(context.Output, `	%s *h_odata = (%s*)malloc(blocksPerGrid * sizeof(%s));
+	CHECK(cudaMemcpy(h_odata, d_odata, blocksPerGrid * sizeof(%s), cudaMemcpyDeviceToHost));
+	%s sum = 0;
 	for (int i = 0; i < blocksPerGrid; i++) {
 		sum += h_odata[i];
 	}
 	free(h_odata);
 	CHECK(cudaFree(d_odata));
-	sum /= ((float)%d);
-	CHECK(cudaMemcpy((float *)device_%s, &sum, sizeof(float), cudaMemcpyHostToDevice));
-`, n, c.N)
+	sum /= ((%s)%d);
+	CHECK(cudaMemcpy(device_%s, &sum, sizeof(%s), cudaMemcpyHostToDevice));
+`, context.Type, context.Type, context.Type, context.Type, context.Type, context.Type, n, c.N, context.Type)
 
 	if k(&c) {
 		return true
@@ -302,7 +302,7 @@ func (context *Context) Avg(k Continuation, node int, a *V, options ...map[strin
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
-	avg_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s_d, (float *)device_%s_d, %d);
+	avg_d<<<blocksPerGridd, threadsPerBlockd>>>(device_%s_d, device_%s_d, %d);
 `, n, a.N, c.N, n)
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -317,7 +317,7 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 	defer c.Free(context.Output)
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16, 16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x, (%d + threadsPerBlock.y - 1) / threadsPerBlock.y);
-    transpose<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %d, %d);
+    transpose<<<blocksPerGrid, threadsPerBlock>>>(device_%s, device_%s, %d, %d);
 `, a.S[1], a.S[0], a.N, c.N, a.S[1], a.S[0])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -327,7 +327,7 @@ func (context *Context) T(k Continuation, node int, a *V, options ...map[string]
 
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16, 16);
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x, (%d + threadsPerBlockd.y - 1) / threadsPerBlockd.y);
-    transpose_d<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s_d, (float *)device_%s_d, %d, %d);
+    transpose_d<<<blocksPerGridd, threadsPerBlockd>>>(device_%s_d, device_%s_d, %d, %d);
 `, a.S[1], a.S[0], c.N, a.N, a.S[1], a.S[0])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -348,7 +348,7 @@ func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[s
 	fmt.Fprintf(context.Output, "\tstatic uint lfsr = 1;\n")
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlock(16);
 	dim3 blocksPerGrid((%d + threadsPerBlock.x - 1) / threadsPerBlock.x);
-	dropout<<<blocksPerGrid, threadsPerBlock>>>((float *)device_%s, (float *)device_%s, %f, lfsr, %d);
+	dropout<<<blocksPerGrid, threadsPerBlock>>>(device_%s, device_%s, %f, lfsr, %d);
 `, c.S[0]*c.S[1], a.N, c.N, drop, c.S[0]*c.S[1])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 
@@ -357,7 +357,7 @@ func (context *Context) Dropout(k Continuation, node int, a *V, options ...map[s
 	}
 	fmt.Fprintf(context.Output, `	dim3 threadsPerBlockd(16);
 	dim3 blocksPerGridd((%d + threadsPerBlockd.x - 1) / threadsPerBlockd.x);
-	dropout<<<blocksPerGridd, threadsPerBlockd>>>((float *)device_%s_d, (float *)device_%s_d, %f, lfsr, %d);
+	dropout<<<blocksPerGridd, threadsPerBlockd>>>(device_%s_d, device_%s_d, %f, lfsr, %d);
 `, c.S[0]*c.S[1], c.N, a.N, drop, c.S[0]*c.S[1])
 	fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 	fmt.Fprintf(context.Output, "\tconst uint LFSRMask = 0x80000057;\n")
@@ -431,72 +431,75 @@ func (context *Context) U(op Unary) func(a Meta, options ...map[string]interface
 
 // Gradient computes the gradient
 func (context *Context) Gradient(set Set, a Meta) (cost V) {
-	fmt.Fprintf(context.Output, `#include <stdio.h>
+	type Data struct {
+		Type string
+	}
+	t, err := template.New("cuda").Parse(`#include <stdio.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
-__global__ void mul(float* a, float* b, float* c, int n, int m, int width, int aw) {
+__global__ void mul({{.Type}}* a, {{.Type}}* b, {{.Type}}* c, int n, int m, int width, int aw) {
 	int ai = blockIdx.x * blockDim.x + threadIdx.x;
 	int bi = blockIdx.y * blockDim.y + threadIdx.y;
 	if ((bi < m) && (ai < n)) {
-		float sum = 0.0f;
+		{{.Type}} sum = 0.0f;
 		for (int k = 0; k < width; k++) {
 			sum += a[ai * width + k] * b[bi * width + k];
 		}
 		c[bi * aw +  ai] = sum;
 	}
 }
-__global__ void mul_ad(float* cd, float* b, float* ad, int width, int r, int c, int cols, int rows) {
+__global__ void mul_ad({{.Type}}* cd, {{.Type}}* b, {{.Type}}* ad, int width, int r, int c, int cols, int rows) {
 	int row = blockIdx.x * blockDim.x + threadIdx.x;
 	int col = blockIdx.y * blockDim.y + threadIdx.y;
 	if ((row < r) && (col < c)) {
-		float sum = 0;
+		{{.Type}} sum = 0;
 		for (int i = 0; i < rows; i++) {
 			sum += cd[row+i*cols]*b[i*width+col];
 		}
 		ad[row*width+col] += sum;
 	}
 }
-__global__ void mul_bd(float* cd, float* a, float* bd, int width, int r, int c, int cols, int rows) {
+__global__ void mul_bd({{.Type}}* cd, {{.Type}}* a, {{.Type}}* bd, int width, int r, int c, int cols, int rows) {
 	int row = blockIdx.x * blockDim.x + threadIdx.x;
 	int col = blockIdx.y * blockDim.y + threadIdx.y;
 	if ((row < r) && (col < c)) {
-		float sum = 0;
+		{{.Type}} sum = 0;
 		for (int i = 0; i < rows; i++) {
 			sum += cd[i + row*cols]*a[i*width+col];
 		}
 		bd[row*width+col] += sum;
 	}
 }
-__global__ void add(float* a, float* b, float* c, int n, int m) {
+__global__ void add({{.Type}}* a, {{.Type}}* b, {{.Type}}* c, int n, int m) {
 	int ai = blockIdx.x * blockDim.x + threadIdx.x;
 	int bi = blockIdx.y * blockDim.y + threadIdx.y;
 	if ((ai < n) && (bi < m)) {
 		c[bi * n + ai] = a[bi * n + ai] + b[ai];
 	}
 }
-__global__ void add_ad(float* cd, float* ad, int n, int m) {
+__global__ void add_ad({{.Type}}* cd, {{.Type}}* ad, int n, int m) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((row < m) && (col < n)) {
 		ad[row * n + col] += cd[row * n + col];
 	}
 }
-__global__ void add_bd(float* cd, float* bd, int n, int m) {
+__global__ void add_bd({{.Type}}* cd, {{.Type}}* bd, int n, int m) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < n) {
-		float sum = 0;
+		{{.Type}} sum = 0;
 		for (int i = 0; i < m; i++) {
 			sum += cd[i * n + col];
 		}
 		bd[col] += sum;
 	}
 }
-__global__ void everett(float* a, float* c, int n) {
+__global__ void everett({{.Type}}* a, {{.Type}}* c, int n) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < n) {
 		const int idx2 = 2*col;
-		const float in = a[col];
+		const {{.Type}} in = a[col];
 		if (in > 0.0f) {
 			c[idx2] = 0.0f;
 		} else {
@@ -509,7 +512,7 @@ __global__ void everett(float* a, float* c, int n) {
 		}
 	}
 }
-__global__ void everett_d(const float *c, const float* cd, float* ad, const int n) {
+__global__ void everett_d(const {{.Type}} *c, const {{.Type}}* cd, {{.Type}}* ad, const int n) {
 	const int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < n) {
 		const int idx = 2 * col;
@@ -527,31 +530,31 @@ __global__ void everett_d(const float *c, const float* cd, float* ad, const int 
 		}
 	}
 }
-__global__ void quadratic(float* c, float* a, float* b, int n, int width) {
+__global__ void quadratic({{.Type}}* c, {{.Type}}* a, {{.Type}}* b, int n, int width) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < n) {
-		float sum = 0;
+		{{.Type}} sum = 0;
 		for (int i = 0; i < width; i++) {
-			float diff = a[col*width + i] - b[col*width + i];
+			{{.Type}} diff = a[col*width + i] - b[col*width + i];
 			sum += diff*diff;
 		}
 		c[col] = sum;
 	}
 }
-__global__ void quadratic_d(float* a, float* b, float* cd, float* ad, float* bd, int n, int m, int width) {
+__global__ void quadratic_d({{.Type}}* a, {{.Type}}* b, {{.Type}}* cd, {{.Type}}* ad, {{.Type}}* bd, int n, int m, int width) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((row < m) && (col < n)) {
-		const float d = cd[row];
+		const {{.Type}} d = cd[row];
 		ad[row*width + col] += (a[row*width + col] - b[row*width + col]) * d;
 		bd[row*width + col] += (b[row*width + col] - a[row*width + col]) * d;
 	}
 }
-__global__ void reduce(float* g_idata, float* g_odata, unsigned int n) {
-	extern __shared__ float sdata[];
+__global__ void reduce({{.Type}}* g_idata, {{.Type}}* g_odata, unsigned int n) {
+	extern __shared__ {{.Type}} sdata[];
 	unsigned int tid = threadIdx.x;
 	unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
-	float mySum = (i < n) ? g_idata[i] : 0;
+	{{.Type}} mySum = (i < n) ? g_idata[i] : 0;
 	if (i + blockDim.x < n) {
 		mySum += g_idata[i + blockDim.x];
 	}
@@ -567,28 +570,28 @@ __global__ void reduce(float* g_idata, float* g_odata, unsigned int n) {
 		g_odata[blockIdx.x] = sdata[0];
 	}
 }
-__global__ void avg_d(float* ad, float* cd, int size) {
+__global__ void avg_d({{.Type}}* ad, {{.Type}}* cd, int size) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < size) {
-		const float d = cd[0] / (float)size;
+		const {{.Type}} d = cd[0] / ({{.Type}})size;
 		ad[col] += d;
 	}
 }
-__global__ void transpose(float* input, float* output, int n, int m) {
+__global__ void transpose({{.Type}}* input, {{.Type}}* output, int n, int m) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((col < n) && (row < m)) {
 		output[col * m + row] = input[row * n + col];
 	}
 }
-__global__ void transpose_d(float* input, float* output, int n, int m) {
+__global__ void transpose_d({{.Type}}* input, {{.Type}}* output, int n, int m) {
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((col < n) && (row < m)) {
 		output[col * m + row] += input[row * n + col];
 	}
 }
-__global__ void dropout(float* input, float* output, float drop, ulong seed, int n) {
+__global__ void dropout({{.Type}}* input, {{.Type}}* output, {{.Type}} drop, ulong seed, int n) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < n) {
 		ulong x = (ulong)col*seed;
@@ -601,7 +604,7 @@ __global__ void dropout(float* input, float* output, float drop, ulong seed, int
 		x = x*x + y;
 		x = (x >> 32) | (x << 32);
 		x = (x*x + z) >> 32;
-		ulong rate = (ulong)(drop * (float)0xFFFFFFFF);
+		ulong rate = (ulong)(drop * ({{.Type}})0xFFFFFFFF);
 		if (x > rate) {
 			output[col] = input[col] / (1.0f - drop);
 		} else {
@@ -609,7 +612,7 @@ __global__ void dropout(float* input, float* output, float drop, ulong seed, int
 		}
 	}
 }
-__global__ void dropout_d(float* input, float* output, float drop, ulong seed, int n) {
+__global__ void dropout_d({{.Type}}* input, {{.Type}}* output, {{.Type}} drop, ulong seed, int n) {
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 	if (col < n) {
 		ulong x = (ulong)col*seed;
@@ -622,27 +625,27 @@ __global__ void dropout_d(float* input, float* output, float drop, ulong seed, i
 		x = x*x + y;
 		x = (x >> 32) | (x << 32);
 		x = (x*x + z) >> 32;
-		ulong rate = (ulong)(drop * (float)0xFFFFFFFF);
+		ulong rate = (ulong)(drop * ({{.Type}})0xFFFFFFFF);
 		if (x > rate) {
 			output[col] += input[col];
 		}
 	}
 }
-__global__ void scalar(float* w, const float* d, const float alpha, const int n) {
+__global__ void scalar({{.Type}}* w, const {{.Type}}* d, const {{.Type}} alpha, const int n) {
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if (x < n) {
 		w[x] -= alpha*d[x];
 	}
 }
-const float B1 = 0.8;
-const float B2 = 0.89;
-__global__ void norm(float* g_idata, float* g_odata, unsigned int n) {
-	extern __shared__ float sdata[];
+const {{.Type}} B1 = 0.8;
+const {{.Type}} B2 = 0.89;
+__global__ void norm({{.Type}}* g_idata, {{.Type}}* g_odata, unsigned int n) {
+	extern __shared__ {{.Type}} sdata[];
 	unsigned int tid = threadIdx.x;
 	unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
-	float mySum = (i < n) ? g_idata[i]*g_idata[i] : 0;
+	{{.Type}} mySum = (i < n) ? g_idata[i]*g_idata[i] : 0;
 	if (i + blockDim.x < n) {
-		const float input = g_idata[i + blockDim.x];
+		const {{.Type}} input = g_idata[i + blockDim.x];
 		mySum += input * input;
 	}
 	sdata[tid] = mySum;
@@ -657,45 +660,53 @@ __global__ void norm(float* g_idata, float* g_odata, unsigned int n) {
 		g_odata[blockIdx.x] = sdata[0];
 	}
 }
-__global__ void adam(float* w, const float* d, float* m, float* v, const float scaling, const float b1, const float b2, const float alpha, const int n, const int set) {
+__global__ void adam({{.Type}}* w, const {{.Type}}* d, {{.Type}}* m, {{.Type}}* v, const {{.Type}} scaling, const {{.Type}} b1, const {{.Type}} b2, const {{.Type}} alpha, const int n, const int set) {
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if ((x > set) && (x < n)) {
-		const float g = d[x] * scaling;
-		const float mm = B1*m[x] + (1-B1)*g;
-		const float vv = B2*v[x] + (1-B2)*g*g;
+		const {{.Type}} g = d[x] * scaling;
+		const {{.Type}} mm = B1*m[x] + (1-B1)*g;
+		const {{.Type}} vv = B2*v[x] + (1-B2)*g*g;
 		m[x] = mm;
 		v[x] = vv;
-		const float mhat = mm / (1 - b1);
-		float vhat = vv / (1 - b2);
+		const {{.Type}} mhat = mm / (1 - b1);
+		{{.Type}} vhat = vv / (1 - b2);
 		if (vhat < 0) {
 			vhat = 0;
 		}
 		w[x] -= alpha * mhat / (sqrt(vhat) + 1e-8);
 	}
 }
-`)
-	fmt.Fprintf(context.Output, `
+
 #define CHECK(err) check(__FILE__, __LINE__, __func__, (err))
 
 void check(const char* file, int line, const char* func, cudaError_t err) {
 	if (err == cudaSuccess) {
 		return;
 	}
-	printf("[ERROR] %%s:%%d: in function %%s - %%s\n", file, line, func, cudaGetErrorString(err));
+	printf("[ERROR] %s:%d: in function %s - %s\n", file, line, func, cudaGetErrorString(err));
 	exit(1);
 }
 
-void callback(float* output, int w, int h);
+void callback({{.Type}}* output, int w, int h);
 
 struct V {
 	int W;
 	int H;
-	float *X;
-	float *D;
-	float *M;
-	float *V;
+	{{.Type}} *X;
+	{{.Type}} *D;
+	{{.Type}} *M;
+	{{.Type}} *V;
 };
 `)
+	if err != nil {
+		panic(err)
+	}
+	err = t.Execute(context.Output, Data{
+		Type: context.Type,
+	})
+	if err != nil {
+		panic(err)
+	}
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "struct V %s;\n", value.N)
 	}
@@ -705,32 +716,32 @@ struct V {
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, "\t%s.W = %d;\n", value.N, value.S[0])
 		fmt.Fprintf(context.Output, "\t%s.H = %d;\n", value.N, value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.X = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.D = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.M = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\t%s.V = (float*)calloc(%d, sizeof(float));\n", value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\t%s.X = (%s*)calloc(%d, sizeof(%s));\n", value.N, context.Type, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\t%s.D = (%s*)calloc(%d, sizeof(%s));\n", value.N, context.Type, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\t%s.M = (%s*)calloc(%d, sizeof(%s));\n", value.N, context.Type, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\t%s.V = (%s*)calloc(%d, sizeof(%s));\n", value.N, context.Type, value.S[0]*value.S[1], context.Type)
 	}
 	fmt.Fprintf(context.Output, `}
 `)
 	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "float *device_%s = 0;\n", value.N)
-		fmt.Fprintf(context.Output, "float *device_%s_d = 0;\n", value.N)
-		fmt.Fprintf(context.Output, "float *device_%s_m = 0;\n", value.N)
-		fmt.Fprintf(context.Output, "float *device_%s_v = 0;\n", value.N)
+		fmt.Fprintf(context.Output, "%s *device_%s = 0;\n", context.Type, value.N)
+		fmt.Fprintf(context.Output, "%s *device_%s_d = 0;\n", context.Type, value.N)
+		fmt.Fprintf(context.Output, "%s *device_%s_m = 0;\n", context.Type, value.N)
+		fmt.Fprintf(context.Output, "%s *device_%s_v = 0;\n", context.Type, value.N)
 	}
 	fmt.Fprintf(context.Output, `
 void zero() {`)
 	for _, value := range set.Weights {
 		fmt.Fprintf(context.Output, `
-	CHECK(cudaMemset(device_%s_d, 0, %d * sizeof(float)));
-`, value.N, value.S[0]*value.S[1])
+	CHECK(cudaMemset(device_%s_d, 0, %d * sizeof(%s)));
+`, value.N, value.S[0]*value.S[1], context.Type)
 	}
 	fmt.Fprintf(context.Output, `
 }
 `)
 
 	fmt.Fprintf(context.Output, `
-void scalar(const float alpha) {`)
+void scalar(const %s alpha) {`, context.Type)
 	for _, value := range set.Weights {
 		if value.Skip {
 			continue
@@ -738,16 +749,16 @@ void scalar(const float alpha) {`)
 		fmt.Fprintf(context.Output, `
 	dim3 threadsPerBlock_%s(16);
 	dim3 blocksPerGrid_%s((%d + threadsPerBlock_%s.x - 1) / threadsPerBlock_%s.x);
-	scalar<<<blocksPerGrid_%s, threadsPerBlock_%s>>>((float *)device_%s, (float *)device_%s_d, alpha, %d);
+	scalar<<<blocksPerGrid_%s, threadsPerBlock_%s>>>(device_%s, device_%s_d, alpha, %d);
 `, value.N, value.N, value.S[0]*value.S[1], value.N, value.N, value.N, value.N, value.N, value.N, value.S[0]*value.S[1])
 	}
 	fmt.Fprintf(context.Output, `
 }
 `)
 	fmt.Fprintf(context.Output, `
-void adam(const int iteration, const float alpha) {
-	float sum = 0;
-`)
+void adam(const int iteration, const %s alpha) {
+	%s sum = 0;
+`, context.Type, context.Type)
 	for _, value := range set.Weights {
 		if value.Skip {
 			continue
@@ -755,29 +766,29 @@ void adam(const int iteration, const float alpha) {
 		n := value.S[0] * value.S[1]
 		fmt.Fprintf(context.Output, `	int threadsPerBlock_%s = 256;
 	int blocksPerGrid_%s = (%d + (threadsPerBlock_%s * 2 - 1)) / (threadsPerBlock_%s * 2);
-	size_t sharedMemSize_%s = threadsPerBlock_%s * sizeof(float);
-	float *d_odata_%s;
-	CHECK(cudaMalloc(&d_odata_%s, blocksPerGrid_%s * sizeof(float)));
-	norm<<<blocksPerGrid_%s, threadsPerBlock_%s, sharedMemSize_%s>>>((float *)device_%s, (float *)d_odata_%s, %d);
-`, value.N, value.N, n, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, n)
+	size_t sharedMemSize_%s = threadsPerBlock_%s * sizeof(%s);
+	%s *d_odata_%s;
+	CHECK(cudaMalloc(&d_odata_%s, blocksPerGrid_%s * sizeof(%s)));
+	norm<<<blocksPerGrid_%s, threadsPerBlock_%s, sharedMemSize_%s>>>(device_%s, d_odata_%s, %d);
+`, value.N, value.N, n, value.N, value.N, value.N, value.N, context.Type, context.Type, value.N, value.N, value.N, context.Type, value.N, value.N, value.N, value.N, value.N, n)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
-		fmt.Fprintf(context.Output, `	float *h_odata_%s = (float*)malloc(blocksPerGrid_%s * sizeof(float));
-	CHECK(cudaMemcpy(h_odata_%s, d_odata_%s, blocksPerGrid_%s * sizeof(float), cudaMemcpyDeviceToHost));
+		fmt.Fprintf(context.Output, `	%s *h_odata_%s = (%s*)malloc(blocksPerGrid_%s * sizeof(%s));
+	CHECK(cudaMemcpy(h_odata_%s, d_odata_%s, blocksPerGrid_%s * sizeof(%s), cudaMemcpyDeviceToHost));
 	for (int i = 0; i < blocksPerGrid_%s; i++) {
 		sum += h_odata_%s[i];
 	}
 	free(h_odata_%s);
 	CHECK(cudaFree(d_odata_%s));
-`, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N)
+`, context.Type, value.N, context.Type, value.N, context.Type, value.N, value.N, value.N, context.Type, value.N, value.N, value.N, value.N)
 	}
-	fmt.Fprintf(context.Output, `	const float norm = sqrt((float)sum);
-	const float b1 = pow(B1, (float)(iteration + 1));
-	const float b2 = pow(B2, (float)(iteration + 1));
-	float scaling = 1.0;
+	fmt.Fprintf(context.Output, `	const %s norm = sqrt((%s)sum);
+	const %s b1 = pow(B1, (%s)(iteration + 1));
+	const %s b2 = pow(B2, (%s)(iteration + 1));
+	%s scaling = 1.0;
 	if (norm > 1.0) {
 		scaling = 1.0 / norm;
 	}
-`)
+`, context.Type, context.Type, context.Type, context.Type, context.Type, context.Type, context.Type)
 	for _, value := range set.Weights {
 		if value.Skip {
 			continue
@@ -785,7 +796,7 @@ void adam(const int iteration, const float alpha) {
 		fmt.Fprintf(context.Output, `
 	dim3 threadsPerBlock_%s_a(16);
 	dim3 blocksPerGrid_%s_a((%d + threadsPerBlock_%s_a.x - 1) / threadsPerBlock_%s_a.x);
-	adam<<<blocksPerGrid_%s_a, threadsPerBlock_%s_a>>>((float *)device_%s, (float *)device_%s_d, (float *)device_%s_m, (float *)device_%s_v, scaling, b1, b2, alpha, %d, %d);
+	adam<<<blocksPerGrid_%s_a, threadsPerBlock_%s_a>>>(device_%s, device_%s_d, device_%s_m, device_%s_v, scaling, b1, b2, alpha, %d, %d);
 `, value.N, value.N, value.S[0]*value.S[1], value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.N, value.S[0]*value.S[1], value.Set)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaGetLastError());\n")
 	}
@@ -807,34 +818,34 @@ void uninit(void) {
 void load() {
 `)
 	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s, %s.X, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
-			value.N, value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, %s.D, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
-			value.N, value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_m, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_m, %s.M, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
-			value.N, value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_v, %d * sizeof(float)));\n", value.N, value.S[0]*value.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_v, %s.V, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
-			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(%s)));\n", value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s, %s.X, %d * sizeof(%s), cudaMemcpyHostToDevice));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_d, %d * sizeof(%s)));\n", value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, %s.D, %d * sizeof(%s), cudaMemcpyHostToDevice));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_m, %d * sizeof(%s)));\n", value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_m, %s.M, %d * sizeof(%s), cudaMemcpyHostToDevice));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s_v, %d * sizeof(%s)));\n", value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_v, %s.V, %d * sizeof(%s), cudaMemcpyHostToDevice));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
 	}
 	fmt.Fprintf(context.Output, `}
 int gradient(void) {
 `)
 	a(func(a *V) bool {
 		fmt.Fprintf(context.Output, "\t{\n")
-		fmt.Fprintf(context.Output, "\tfloat* host_%s = (float*)calloc(%d, sizeof(float));\n", a.N, a.S[0]*a.S[1])
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(host_%s, device_%s, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
-			a.N, a.N, a.S[0]*a.S[1])
+		fmt.Fprintf(context.Output, "\t%s* host_%s = (%s*)calloc(%d, sizeof(%s));\n", context.Type, a.N, context.Type, a.S[0]*a.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(host_%s, device_%s, %d * sizeof(%s), cudaMemcpyDeviceToHost));\n",
+			a.N, a.N, a.S[0]*a.S[1], context.Type)
 		fmt.Fprintf(context.Output, "\tcallback(host_%s, %d, %d);\n", a.N, a.S[0], a.S[1])
 		fmt.Fprintf(context.Output, `	for (int i = 0; i < %d; i++) {
 			host_%s[i] = 1.0;
 	}
 `, a.S[0]*a.S[1], a.N)
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, host_%s, %d * sizeof(float), cudaMemcpyHostToDevice));\n",
-			a.N, a.N, a.S[0]*a.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_d, host_%s, %d * sizeof(%s), cudaMemcpyHostToDevice));\n",
+			a.N, a.N, a.S[0]*a.S[1], context.Type)
 		fmt.Fprintf(context.Output, "\tfree(host_%s);\n", a.N)
 		fmt.Fprintf(context.Output, "\t}\n")
 		return false
@@ -845,17 +856,17 @@ int gradient(void) {
 void store() {
 `)
 	for _, value := range set.Weights {
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.X, device_%s, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
-			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.X, device_%s, %d * sizeof(%s), cudaMemcpyDeviceToHost));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s));\n", value.N)
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
-			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.D, device_%s_d, %d * sizeof(%s), cudaMemcpyDeviceToHost));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_d));\n", value.N)
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.M, device_%s_m, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
-			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.M, device_%s_m, %d * sizeof(%s), cudaMemcpyDeviceToHost));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_m));\n", value.N)
-		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.V, device_%s_v, %d * sizeof(float), cudaMemcpyDeviceToHost));\n",
-			value.N, value.N, value.S[0]*value.S[1])
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(%s.V, device_%s_v, %d * sizeof(%s), cudaMemcpyDeviceToHost));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
 		fmt.Fprintf(context.Output, "\tCHECK(cudaFree(device_%s_v));\n", value.N)
 	}
 	fmt.Fprintf(context.Output, `

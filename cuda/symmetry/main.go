@@ -142,17 +142,17 @@ int main() {
 		printf("\n");
 	}
 	
-	float factor = sqrt(2.0 / ((float)i.W));
+	double factor = sqrt(2.0 / ((double)i.W));
 	for (int c = 0; c < i.W*i.H; c++) {
-		i.X[c] = (float)gauss() * factor * .01;
+		i.X[c] = (double)gauss() * factor * .01;
 	}
-	factor = sqrt(2.0 / ((float)w0.W));
+	factor = sqrt(2.0 / ((double)w0.W));
 	for (int c = 0; c < w0.W*w0.H; c++) {
-		w0.X[c] = factor * (2 * (float)rand() / ((float)RAND_MAX+1.0) - 1);
+		w0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
 	}
-	factor = sqrt(2.0 / ((float)w1.W));
+	factor = sqrt(2.0 / ((double)w1.W));
 	for (int c = 0; c < w1.W*w1.H; c++) {
-		w1.X[c] = factor * (2 * (float)rand() / ((float)RAND_MAX+1.0) - 1);
+		w1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
 	}
 	load();
 	for (int i = 0; i < 256; i++) {
@@ -163,7 +163,7 @@ int main() {
 	store();
 	for (int c = 30*30*set[0].NumberTrain; c < y.H; c++) {
 		for (int cc = 0; cc < y.W; cc++) {
-			printf("%%f ", y.X[c*y.W + cc]);
+			printf("%%lf ", y.X[c*y.W + cc]);
 		}
 		printf("\n");
 	}
@@ -212,7 +212,7 @@ func Load() []Set {
 
 func main() {
 	s := Load()
-	context := cuda.Context{Type: "float"}
+	context := cuda.Context{Type: "double"}
 	var err error
 	context.Output, err = os.Create("sym.cu")
 	if err != nil {
@@ -252,8 +252,8 @@ func main() {
 	loss := Avg(Quadratic(out1, sa))
 	context.Gradient(set, loss)
 
-	fmt.Fprintf(context.Output, `void callback(float* output, int w, int h) {
-	printf("%%f\n", output[0]);
+	fmt.Fprintf(context.Output, `void callback(double* output, int w, int h) {
+	printf("%%lf\n", output[0]);
 }
 `)
 	fmt.Fprintf(context.Output, data)
