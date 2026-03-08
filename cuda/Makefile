@@ -60,6 +60,12 @@ symmetry/sym:
 	nvcc -o symmetry/sym symmetry/*.cu
 	symmetry/sym
 
+symmetry2/sym:
+	cd symmetry2 && go build
+	cd symmetry2 && ./symmetry2
+	nvcc -o symmetry2/sym symmetry2/*.cu
+	symmetry2/sym
+
 clean:
 	rm -f test_mul/mul.cu test_mul/mul test_mul/test_mul
 	rm -f test_mul_a/mul.cu test_mul_a/mul test_mul_a/test_mul_a
@@ -71,3 +77,4 @@ clean:
 	rm -f test_t/t.cu test_t/t test_t/test_t
 	rm -f test_xor/xor.cu test_xor/xor test_xor/test_xor
 	rm -f symmetry/sym.cu symmetry/sym symmetry/symmetry
+	rm -f symmetry2/sym.cu symmetry2/sym symmetry2/symmetry2
