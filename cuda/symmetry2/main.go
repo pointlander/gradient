@@ -43,73 +43,91 @@ int main() {
 	Load();
 	init();
 
-	int idx = 0;
-	int idx2 = 0;
-	for (int ccc = 0; ccc < set[0].NumberTrain; ccc++) {
+	for (int t = 0; t < 4*1024; t++) {
+		const int ccc = rand() %% set[0].NumberTrain;
+		int idx = 0;
+		int idx2 = 0;
 		int index = 0;
+		for (int cc = 0; cc < x.W*x.H; cc++) {
+			x.X[cc] = 0;
+		}
+		for (int cc = 0; cc < y.W*y.H; cc++) {
+			y.X[cc] = 0;
+		}
 		for (int cc = 0; cc < set[0].Train[ccc].InputHeight; cc++) {
 			for (int c = 0; c < set[0].Train[ccc].InputWidth; c++) {
-				printf("%%c", set[0].Train[ccc].Input[index] + '0');
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+set[0].Train[ccc].Input[index]] = .1;
+				if (t == 0) {
+					printf("%%c", set[0].Train[ccc].Input[index] + '0');
+				}
+				x.X[idx+set[0].Train[ccc].Input[index]] = 1;
 				index++;
-				idx += 30+30+10+1;
+				idx += 10+1;
 			}
 			for (int c = set[0].Train[ccc].InputWidth; c < 30; c++) {
-				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
-				idx += 30+30+10+1;
+				if (t == 0) {
+					printf("f");
+				}
+				x.X[idx+10] = 1;
+				idx += 10+1;
 			}
-			printf("\n");
+			if (t == 0) {
+				printf("\n");
+			}
 		}
 		for (int cc = set[0].Train[ccc].InputHeight; cc < 30; cc++) {
 			for (int c = 0; c < 30; c++) {
-				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
-				idx += 30+30+10+1;
+				if (t == 0) {
+					printf("f");
+				}
+				x.X[idx+10] = 1;
+				idx += 10+1;
 			}
+			if (t == 0) {
+				printf("\n");
+			}
+		}
+		if (t == 0) {
 			printf("\n");
 		}
-		printf("\n");
 
 		index = 0;
 		for (int cc = 0; cc < set[0].Train[ccc].OutputHeight; cc++) {
 			for (int c = 0; c < set[0].Train[ccc].OutputWidth; c++) {
-				printf("%%c", set[0].Train[ccc].Output[index] + '0');
-				y.X[idx2+c] = .1;
-				y.X[idx2+30+cc] = .1;
-				y.X[idx2+30+30+set[0].Train[ccc].Output[index]] = .1;
+				if (t == 0) {
+					printf("%%c", set[0].Train[ccc].Output[index] + '0');
+				}
+				y.X[idx2+set[0].Train[ccc].Output[index]] = 1;
 				index++;
-				idx2 += 30+30+10+1;
+				idx2 += 10+1;
 			}
 			for (int c = set[0].Train[ccc].OutputWidth; c < 30; c++) {
-				printf("f");
-				y.X[idx2+c] = .1;
-				y.X[idx2+30+cc] = .1;
-				y.X[idx2+30+30+10] = .1;
-				idx2 += 30+30+10+1;
+				if (t == 0) {
+					printf("f");
+				}
+				y.X[idx2+10] = 1;
+				idx2 += 10+1;
 			}
-			printf("\n");
+			if (t == 0) {
+				printf("\n");
+			}
 		}
 		for (int cc = set[0].Train[ccc].OutputHeight; cc < 30; cc++) {
 			for (int c = 0; c < 30; c++) {
-				printf("f");
-				y.X[idx2+c] = .1;
-				y.X[idx2+30+cc] = .1;
-				y.X[idx2+30+30+10] = .1;
-				idx2 += 30+30+10+1;
+				if (t == 0) {
+					printf("f");
+				}
+				y.X[idx2+10] = 1;
+				idx2 += 10+1;
 			}
+			if (t == 0) {
+				printf("\n");
+			}
+		}
+		if (t == 0) {
 			printf("\n");
 		}
-		printf("\n");
-	}
 
-	for (int ccc = 0; ccc < set[0].NumberTest; ccc++) {
+	/*for (int ccc = 0; ccc < set[0].NumberTest; ccc++) {
 		int index = 0;
 		for (int cc = 0; cc < set[0].Test[ccc].InputHeight; cc++) {
 			for (int c = 0; c < set[0].Test[ccc].InputWidth; c++) {
@@ -140,27 +158,36 @@ int main() {
 			printf("\n");
 		}
 		printf("\n");
-	}
-	
-	double factor = sqrt(2.0 / ((double)i.W));
-	for (int c = 0; c < i.W*i.H; c++) {
-		i.X[c] = (double)gauss() * factor * .01;
-	}
-	factor = sqrt(2.0 / ((double)w0.W));
-	for (int c = 0; c < w0.W*w0.H; c++) {
-		w0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
-	}
-	factor = sqrt(2.0 / ((double)w1.W));
-	for (int c = 0; c < w1.W*w1.H; c++) {
-		w1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
-	}
-	load();
-	for (int i = 0; i < 256; i++) {
+	}*/
+
+		if (t == 0) {
+			double factor = sqrt(2.0 / ((double)i.W));
+			for (int c = 0; c < i.W*i.H; c++) {
+				i.X[c] = (double)gauss() * factor * .01;
+			}
+			factor = sqrt(2.0 / ((double)w0.W));
+			for (int c = 0; c < w0.W*w0.H; c++) {
+				w0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+			}
+			factor = sqrt(2.0 / ((double)w1.W));
+			for (int c = 0; c < w1.W*w1.H; c++) {
+				w1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+			}
+			factor = sqrt(2.0 / ((double)ow0.W));
+			for (int c = 0; c < ow0.W*ow0.H; c++) {
+				ow0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+			}
+			factor = sqrt(2.0 / ((double)ow1.W));
+			for (int c = 0; c < ow1.W*ow1.H; c++) {
+				ow1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+			}
+		}
+		load();
 		zero();
 		gradient();
-		adam(i, 1E-3);
+		adam(t, 1E-4);
+		store();
 	}
-	store();
 	for (int c = 30*30*set[0].NumberTrain; c < y.H; c++) {
 		for (int cc = 0; cc < y.W; cc++) {
 			printf("%%lf ", y.X[c*y.W + cc]);
@@ -221,16 +248,20 @@ func main() {
 	defer context.Output.Close()
 
 	set := cuda.NewSet()
-	set.Add(&context, "w0", (30 + 30 + 10 + 1), (30 + 30 + 10 + 1))
-	set.Add(&context, "b0", (30 + 30 + 10 + 1))
-	set.Add(&context, "w1", 2*(30+30+10+1), (30 + 30 + 10 + 1))
-	set.Add(&context, "b1", (30 + 30 + 10 + 1))
-	set.Add(&context, "i", 7, 30*30*(len(s[0].Train)+len(s[0].Test)))
-	set.Add(&context, "x", (30 + 30 + 10 + 1), 30*30*(len(s[0].Train)+len(s[0].Test)))
-	set.Add(&context, "y", (30 + 30 + 10 + 1), 30*30*(len(s[0].Train)+len(s[0].Test)))
+	set.Add(&context, "w0", (10 + 1), (10 + 1))
+	set.Add(&context, "b0", (10 + 1))
+	set.Add(&context, "w1", 2*(10+1), (10 + 1))
+	set.Add(&context, "b1", (10 + 1))
+	set.Add(&context, "ow0", (10 + 1), (10 + 1))
+	set.Add(&context, "ob0", (10 + 1))
+	set.Add(&context, "ow1", 2*(10+1), (10 + 1))
+	set.Add(&context, "ob1", (10 + 1))
+	set.Add(&context, "i", 7, 30*30)
+	set.Add(&context, "x", (10 + 1), 30*30)
+	set.Add(&context, "y", (10 + 1), 30*30)
 	set.ByName["x"].Skip = true
 	set.ByName["y"].Skip = false
-	set.ByName["y"].Set = (30 + 30 + 10 + 1) * 30 * 30 * len(s[0].Train)
+	//set.ByName["y"].Set = (30 + 30 + 10 + 1) * 30 * 30 * len(s[0].Train)
 
 	Mul := context.B(context.Mul)
 	Add := context.B(context.Add)
@@ -246,10 +277,10 @@ func main() {
 
 	l0 := Everett(Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0")))
 	l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
-	out0 := Everett(Add(Mul(set.Get("w0"), set.Get("y")), set.Get("b0")))
-	out1 := Add(Mul(set.Get("w1"), out0), set.Get("b1"))
 	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(l1)))
-	loss := Avg(Quadratic(out1, sa))
+	out0 := Everett(Add(Mul(set.Get("ow0"), sa), set.Get("ob0")))
+	out1 := Add(Mul(set.Get("ow1"), out0), set.Get("ob1"))
+	loss := Avg(Quadratic(set.Get("y"), out1))
 	context.Gradient(set, loss)
 
 	fmt.Fprintf(context.Output, `void callback(double* output, int w, int h) {
