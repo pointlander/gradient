@@ -43,7 +43,7 @@ int main() {
 	Load();
 	init();
 
-	for (int t = 0; t < 4*1024; t++) {
+	for (int t = 0; t < 8*1024; t++) {
 		const int ccc = rand() %% set[0].NumberTrain;
 		int idx = 0;
 		int idx2 = 0;
@@ -269,10 +269,10 @@ func main() {
 		"drop": &drop,
 	}
 
-	l0 := Everett(Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0")))
+	l0 := Dropout(Everett(Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0"))), dropout)
 	l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
 	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(l1)))
-	out0 := Everett(Add(Mul(set.Get("ow0"), sa), set.Get("ob0")))
+	out0 := Dropout(Everett(Add(Mul(set.Get("ow0"), sa), set.Get("ob0"))), dropout)
 	out1 := Add(Mul(set.Get("ow1"), out0), set.Get("ob1"))
 	loss := Avg(Quadratic(set.Get("y"), out1))
 	context.Gradient(set, loss)
