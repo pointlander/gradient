@@ -188,12 +188,6 @@ int main() {
 		adam(t, 1E-4);
 		store();
 	}
-	for (int c = 30*30*set[0].NumberTrain; c < y.H; c++) {
-		for (int cc = 0; cc < y.W; cc++) {
-			printf("%%lf ", y.X[c*y.W + cc]);
-		}
-		printf("\n");
-	}
 	uninit();
 }`
 

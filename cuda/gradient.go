@@ -637,8 +637,8 @@ __global__ void scalar({{.Type}}* w, const {{.Type}}* d, const {{.Type}} alpha, 
 		w[x] -= alpha*d[x];
 	}
 }
-const {{.Type}} B1 = 0.8;
-const {{.Type}} B2 = 0.89;
+const {{.Type}} B1 = 0.9;
+const {{.Type}} B2 = 0.999;
 __global__ void norm({{.Type}}* g_idata, {{.Type}}* g_odata, unsigned int n) {
 	extern __shared__ {{.Type}} sdata[];
 	unsigned int tid = threadIdx.x;
