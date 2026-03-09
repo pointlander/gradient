@@ -831,6 +831,18 @@ void load() {
 		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s_v, %s.V, %d * sizeof(%s), cudaMemcpyHostToDevice));\n",
 			value.N, value.N, value.S[0]*value.S[1], context.Type)
 	}
+	fmt.Fprintf(context.Output, `
+}
+void load_parameters() {
+`)
+	for _, value := range set.Weights {
+		if !value.Skip {
+			continue
+		}
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMalloc((void**)&device_%s, %d * sizeof(%s)));\n", value.N, value.S[0]*value.S[1], context.Type)
+		fmt.Fprintf(context.Output, "\tCHECK(cudaMemcpy(device_%s, %s.X, %d * sizeof(%s), cudaMemcpyHostToDevice));\n",
+			value.N, value.N, value.S[0]*value.S[1], context.Type)
+	}
 	fmt.Fprintf(context.Output, `}
 int gradient(void) {
 `)

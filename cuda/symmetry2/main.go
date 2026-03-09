@@ -43,6 +43,29 @@ int main() {
 	Load();
 	init();
 	const double one = .001;
+
+	double factor = sqrt(2.0 / ((double)i.W));
+	for (int c = 0; c < i.W*i.H; c++) {
+		i.X[c] = (double)gauss() * factor * .01;
+	}
+	factor = sqrt(2.0 / ((double)w0.W));
+	for (int c = 0; c < w0.W*w0.H; c++) {
+		w0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+	}
+	factor = sqrt(2.0 / ((double)w1.W));
+	for (int c = 0; c < w1.W*w1.H; c++) {
+		w1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+	}
+	factor = sqrt(2.0 / ((double)ow0.W));
+	for (int c = 0; c < ow0.W*ow0.H; c++) {
+		ow0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+	}
+	factor = sqrt(2.0 / ((double)ow1.W));
+	for (int c = 0; c < ow1.W*ow1.H; c++) {
+		ow1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
+	}
+	load();
+
 	for (int t = 0; t < 4*1024; t++) {
 		const int ccc = rand() %% set[0].NumberTrain;
 		int idx = 0;
@@ -127,22 +150,25 @@ int main() {
 			printf("\n");
 		}
 
-	/*for (int ccc = 0; ccc < set[0].NumberTest; ccc++) {
+		load_parameters();
+		zero();
+		gradient();
+		adam(t, 1E-4);
+	}
+
+	int idx = 0;
+	for (int ccc = 0; ccc < set[0].NumberTest; ccc++) {
 		int index = 0;
 		for (int cc = 0; cc < set[0].Test[ccc].InputHeight; cc++) {
 			for (int c = 0; c < set[0].Test[ccc].InputWidth; c++) {
 				printf("%%c", set[0].Test[ccc].Input[index] + '0');
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+set[0].Test[ccc].Input[index]] = .1;
+				x.X[idx+set[0].Test[ccc].Input[index]] = one;
 				index++;
-				idx += 30+30+10+1;
+				idx += 10+1;
 			}
 			for (int c = set[0].Test[ccc].InputWidth; c < 30; c++) {
 				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
+				x.X[idx+10] = one;
 				idx += 30+30+10+1;
 			}
 			printf("\n");
@@ -150,44 +176,14 @@ int main() {
 		for (int cc = set[0].Test[ccc].InputHeight; cc < 30; cc++) {
 			for (int c = 0; c < 30; c++) {
 				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
-				idx += 30+30+10+1;
+				x.X[idx+10] = one;
+				idx += 10+1;
 			}
 			printf("\n");
 		}
 		printf("\n");
-	}*/
-
-		if (t == 0) {
-			double factor = sqrt(2.0 / ((double)i.W));
-			for (int c = 0; c < i.W*i.H; c++) {
-				i.X[c] = (double)gauss() * factor * .01;
-			}
-			factor = sqrt(2.0 / ((double)w0.W));
-			for (int c = 0; c < w0.W*w0.H; c++) {
-				w0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
-			}
-			factor = sqrt(2.0 / ((double)w1.W));
-			for (int c = 0; c < w1.W*w1.H; c++) {
-				w1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
-			}
-			factor = sqrt(2.0 / ((double)ow0.W));
-			for (int c = 0; c < ow0.W*ow0.H; c++) {
-				ow0.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
-			}
-			factor = sqrt(2.0 / ((double)ow1.W));
-			for (int c = 0; c < ow1.W*ow1.H; c++) {
-				ow1.X[c] = factor * (2 * (double)rand() / ((double)RAND_MAX+1.0) - 1);
-			}
-		}
-		load();
-		zero();
-		gradient();
-		adam(t, 1E-4);
-		store();
 	}
+	store();
 	uninit();
 }`
 
@@ -254,7 +250,7 @@ func main() {
 	set.Add(&context, "x", (10 + 1), 30*30)
 	set.Add(&context, "y", (10 + 1), 30*30)
 	set.ByName["x"].Skip = true
-	set.ByName["y"].Skip = false
+	set.ByName["y"].Skip = true
 	//set.ByName["y"].Set = (30 + 30 + 10 + 1) * 30 * 30 * len(s[0].Train)
 
 	Mul := context.B(context.Mul)
