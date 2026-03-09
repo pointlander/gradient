@@ -42,6 +42,7 @@ int main() {
 	srand(1);
 	Load();
 	init();
+	const double one = .001;
 
 	int idx = 0;
 	int idx2 = 0;
@@ -50,17 +51,17 @@ int main() {
 		for (int cc = 0; cc < set[0].Train[ccc].InputHeight; cc++) {
 			for (int c = 0; c < set[0].Train[ccc].InputWidth; c++) {
 				printf("%%c", set[0].Train[ccc].Input[index] + '0');
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+set[0].Train[ccc].Input[index]] = .1;
+				x.X[idx+c] = one;
+				x.X[idx+30+cc] = one;
+				x.X[idx+30+30+set[0].Train[ccc].Input[index]] = one;
 				index++;
 				idx += 30+30+10+1;
 			}
 			for (int c = set[0].Train[ccc].InputWidth; c < 30; c++) {
 				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
+				x.X[idx+c] = one;
+				x.X[idx+30+cc] = one;
+				x.X[idx+30+30+10] = one;
 				idx += 30+30+10+1;
 			}
 			printf("\n");
@@ -68,9 +69,9 @@ int main() {
 		for (int cc = set[0].Train[ccc].InputHeight; cc < 30; cc++) {
 			for (int c = 0; c < 30; c++) {
 				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
+				x.X[idx+c] = one;
+				x.X[idx+30+cc] = one;
+				x.X[idx+30+30+10] = one;
 				idx += 30+30+10+1;
 			}
 			printf("\n");
@@ -81,17 +82,17 @@ int main() {
 		for (int cc = 0; cc < set[0].Train[ccc].OutputHeight; cc++) {
 			for (int c = 0; c < set[0].Train[ccc].OutputWidth; c++) {
 				printf("%%c", set[0].Train[ccc].Output[index] + '0');
-				y.X[idx2+c] = .1;
-				y.X[idx2+30+cc] = .1;
-				y.X[idx2+30+30+set[0].Train[ccc].Output[index]] = .1;
+				y.X[idx2+c] = one;
+				y.X[idx2+30+cc] = one;
+				y.X[idx2+30+30+set[0].Train[ccc].Output[index]] = one;
 				index++;
 				idx2 += 30+30+10+1;
 			}
 			for (int c = set[0].Train[ccc].OutputWidth; c < 30; c++) {
 				printf("f");
-				y.X[idx2+c] = .1;
-				y.X[idx2+30+cc] = .1;
-				y.X[idx2+30+30+10] = .1;
+				y.X[idx2+c] = one;
+				y.X[idx2+30+cc] = one;
+				y.X[idx2+30+30+10] = one;
 				idx2 += 30+30+10+1;
 			}
 			printf("\n");
@@ -99,9 +100,9 @@ int main() {
 		for (int cc = set[0].Train[ccc].OutputHeight; cc < 30; cc++) {
 			for (int c = 0; c < 30; c++) {
 				printf("f");
-				y.X[idx2+c] = .1;
-				y.X[idx2+30+cc] = .1;
-				y.X[idx2+30+30+10] = .1;
+				y.X[idx2+c] = one;
+				y.X[idx2+30+cc] = one;
+				y.X[idx2+30+30+10] = one;
 				idx2 += 30+30+10+1;
 			}
 			printf("\n");
@@ -114,17 +115,17 @@ int main() {
 		for (int cc = 0; cc < set[0].Test[ccc].InputHeight; cc++) {
 			for (int c = 0; c < set[0].Test[ccc].InputWidth; c++) {
 				printf("%%c", set[0].Test[ccc].Input[index] + '0');
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
+				x.X[idx+c] = one;
+				x.X[idx+30+cc] = one;
 				x.X[idx+30+30+set[0].Test[ccc].Input[index]] = .1;
 				index++;
 				idx += 30+30+10+1;
 			}
 			for (int c = set[0].Test[ccc].InputWidth; c < 30; c++) {
 				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
+				x.X[idx+c] = one;
+				x.X[idx+30+cc] = one;
+				x.X[idx+30+30+10] = one;
 				idx += 30+30+10+1;
 			}
 			printf("\n");
@@ -132,9 +133,9 @@ int main() {
 		for (int cc = set[0].Test[ccc].InputHeight; cc < 30; cc++) {
 			for (int c = 0; c < 30; c++) {
 				printf("f");
-				x.X[idx+c] = .1;
-				x.X[idx+30+cc] = .1;
-				x.X[idx+30+30+10] = .1;
+				x.X[idx+c] = one;
+				x.X[idx+30+cc] = one;
+				x.X[idx+30+30+10] = one;
 				idx += 30+30+10+1;
 			}
 			printf("\n");
@@ -246,14 +247,14 @@ func main() {
 
 	l0 := Everett(Add(Mul(set.Get("w0"), set.Get("x")), set.Get("b0")))
 	l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
-	out0 := Everett(Add(Mul(set.Get("w0"), set.Get("y")), set.Get("b0")))
-	out1 := Add(Mul(set.Get("w1"), out0), set.Get("b1"))
 	sa := T(Mul(Dropout(Mul(set.Get("i"), set.Get("i")), dropout), T(l1)))
-	loss := Avg(Quadratic(out1, sa))
+	out0 := Everett(Add(Mul(set.Get("w0"), sa), set.Get("b0")))
+	out1 := Add(Mul(set.Get("w1"), out0), set.Get("b1"))
+	loss := Avg(Quadratic(out1, set.Get("y")))
 	context.Gradient(set, loss)
 
 	fmt.Fprintf(context.Output, `void callback(double* output, int w, int h) {
-	printf("%%lf\n", output[0]);
+	printf("%%lf\n", 1000*output[0]);
 }
 `)
 	fmt.Fprintf(context.Output, data)
