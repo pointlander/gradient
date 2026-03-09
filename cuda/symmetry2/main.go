@@ -42,8 +42,8 @@ int main() {
 	srand(1);
 	Load();
 	init();
-
-	for (int t = 0; t < 11*1024; t++) {
+	const double one = .001;
+	for (int t = 0; t < 4*1024; t++) {
 		const int ccc = rand() %% set[0].NumberTrain;
 		int idx = 0;
 		int idx2 = 0;
@@ -59,7 +59,7 @@ int main() {
 				if (t == 0) {
 					printf("%%c", set[0].Train[ccc].Input[index] + '0');
 				}
-				x.X[idx+set[0].Train[ccc].Input[index]] = 1;
+				x.X[idx+set[0].Train[ccc].Input[index]] = one;
 				index++;
 				idx += 10+1;
 			}
@@ -67,7 +67,7 @@ int main() {
 				if (t == 0) {
 					printf("f");
 				}
-				x.X[idx+10] = 1;
+				x.X[idx+10] = one;
 				idx += 10+1;
 			}
 			if (t == 0) {
@@ -79,7 +79,7 @@ int main() {
 				if (t == 0) {
 					printf("f");
 				}
-				x.X[idx+10] = 1;
+				x.X[idx+10] = one;
 				idx += 10+1;
 			}
 			if (t == 0) {
@@ -96,7 +96,7 @@ int main() {
 				if (t == 0) {
 					printf("%%c", set[0].Train[ccc].Output[index] + '0');
 				}
-				y.X[idx2+set[0].Train[ccc].Output[index]] = 1;
+				y.X[idx2+set[0].Train[ccc].Output[index]] = one;
 				index++;
 				idx2 += 10+1;
 			}
@@ -104,7 +104,7 @@ int main() {
 				if (t == 0) {
 					printf("f");
 				}
-				y.X[idx2+10] = 1;
+				y.X[idx2+10] = one;
 				idx2 += 10+1;
 			}
 			if (t == 0) {
@@ -116,7 +116,7 @@ int main() {
 				if (t == 0) {
 					printf("f");
 				}
-				y.X[idx2+10] = 1;
+				y.X[idx2+10] = one;
 				idx2 += 10+1;
 			}
 			if (t == 0) {
@@ -278,7 +278,7 @@ func main() {
 	context.Gradient(set, loss)
 
 	fmt.Fprintf(context.Output, `void callback(double* output, int w, int h) {
-	printf("%%lf\n", output[0]);
+	printf("%%lf\n", 1000*output[0]);
 }
 `)
 	fmt.Fprintf(context.Output, data)
