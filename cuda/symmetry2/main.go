@@ -43,7 +43,7 @@ int main() {
 	Load();
 	init();
 
-	for (int t = 0; t < 8*1024; t++) {
+	for (int t = 0; t < 11*1024; t++) {
 		const int ccc = rand() %% set[0].NumberTrain;
 		int idx = 0;
 		int idx2 = 0;
