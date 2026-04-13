@@ -1107,6 +1107,32 @@ func (context *Context) Sqrt(k Continuation, node int, a *V, options ...map[stri
 	return false
 }
 
+// Inv is the inverse of a number
+func (context *Context) Inv(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := NewV(a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for _, j := range a.X {
+			if j == 0 {
+				c.X = append(c.X, 0)
+				continue
+			}
+			c.X = append(c.X, 1/j)
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		a.D[i] += -j / (a.X[i] * a.X[i])
+	}
+	return false
+}
+
 // Sigmoid computes the sigmoid of a vector
 func (context *Context) Sigmoid(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
@@ -1859,6 +1885,10 @@ var (
 	Exp = U(Static.Exp)
 	// Log the natural logarithm of a tensor
 	Log = U(Static.Log)
+	// Sqrt the sqrt of a tensors
+	Sqrt = U(Static.Sqrt)
+	// Inv the inverse of a tensors
+	Inv = U(Static.Inv)
 	// Sigmoid the sigmoid of a tensors
 	Sigmoid = U(Static.Sigmoid)
 	// TanH the hyperbolic tangent of a tensor
