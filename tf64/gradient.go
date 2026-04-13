@@ -1072,6 +1072,28 @@ func (context *Context) Log(k Continuation, node int, a *V, options ...map[strin
 	return false
 }
 
+// Sqrt is the sqrt of a number
+func (context *Context) Sqrt(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
+	c := NewV(a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		for _, j := range a.X {
+			c.X = append(c.X, sqrt(j))
+		}
+	}
+	context.Set(node, c.X)
+	if k(&c) {
+		return true
+	}
+	for i, j := range c.D {
+		a.D[i] += j / (2 * c.X[i])
+	}
+	return false
+}
+
 // Sigmoid computes the sigmoid of a vector
 func (context *Context) Sigmoid(k Continuation, node int, a *V, options ...map[string]interface{}) bool {
 	c := NewV(a.S...)
