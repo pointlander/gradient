@@ -2111,7 +2111,10 @@ func (context *Context) Abs(k Continuation, node int, a *V, options ...map[strin
 		}
 		a.D[i] += cd * sign
 {{else if eq .Type "complex128"}}
-		a.D[i] += cd
+		if c.X[i] == 0 {
+			continue
+		}
+		a.D[i] += cd * a.X[i] / c.X[i]
 {{end}}
 	}
 	return false

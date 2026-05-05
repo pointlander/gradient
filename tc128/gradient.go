@@ -1717,7 +1717,10 @@ func (context *Context) Abs(k Continuation, node int, a *V, options ...map[strin
 	}
 	for i, cd := range c.D {
 
-		a.D[i] += cd
+		if c.X[i] == 0 {
+			continue
+		}
+		a.D[i] += cd * a.X[i] / c.X[i]
 
 	}
 	return false
