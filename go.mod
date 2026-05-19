@@ -1,6 +1,6 @@
 module github.com/pointlander/gradient
 
-go 1.12
+go 1.18
 
 replace github.com/ALTree/bigfloat => github.com/pointlander/bigfloat v0.0.0-20201204042606-2cd95208a637
 
