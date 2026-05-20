@@ -49,4 +49,85 @@ type (
 	Binary[T Number] func(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool
 	// Operation is an operation that takes multiple parameters
 	Operation[T Number] func(k Continuation[T], node int, a ...*V[T]) bool
+	// Context is a function context
+	Context[T Number] struct {
+		Quantize uint
+		Node     int
+		Cache    map[int][]T
+	}
 )
+
+// Clear clears the cache
+func (c *Context[T]) Clear() {
+	c.Cache = make(map[int][]T)
+}
+
+// Get gets a value from the cache
+func (c *Context[T]) Get(node int) []T {
+	if c.Cache != nil {
+		return c.Cache[node]
+	}
+	return nil
+}
+
+// Set sets a value in the cache
+func (c *Context[T]) Set(node int, value []T) {
+	if c.Cache != nil {
+		c.Cache[node] = value
+	}
+}
+
+// Op is a operation
+func (context *Context[T]) Op(op Operation[T]) func(a ...Meta[T]) Meta[T] {
+	return func(a ...Meta[T]) Meta[T] {
+		node := context.Node
+		context.Node++
+		return func(k Continuation[T]) Continuation[T] {
+			var call func(a []Meta[T], b []*V[T]) (bool, Continuation[T])
+			call = func(a []Meta[T], b []*V[T]) (bool, Continuation[T]) {
+				if len(a) == 0 {
+					return op(k, node, b...), nil
+				}
+				derivatives := false
+				continuation := a[0](func(c *V[T]) bool {
+					derivatives, _ = call(a[1:], append(b, c))
+					return derivatives
+				})
+				return derivatives, continuation
+			}
+			_, continuation := call(a, make([]*V[T], 0, len(a)))
+			return continuation
+		}
+	}
+}
+
+// B converts a binary function into an operator
+func (context *Context[T]) B(op Binary[T]) func(a, b Meta[T], options ...map[string]interface{}) Meta[T] {
+	return func(a, b Meta[T], options ...map[string]interface{}) Meta[T] {
+		node := context.Node
+		context.Node++
+		return func(k Continuation[T]) Continuation[T] {
+			return a(func(a *V[T]) bool {
+				derivatives := false
+				b(func(b *V[T]) bool {
+					derivatives = op(k, node, a, b, options...)
+					return derivatives
+				})
+				return derivatives
+			})
+		}
+	}
+}
+
+// U converts a unary function into an operator
+func (context *Context[T]) U(op Unary[T]) func(a Meta[T], options ...map[string]interface{}) Meta[T] {
+	return func(a Meta[T], options ...map[string]interface{}) Meta[T] {
+		node := context.Node
+		context.Node++
+		return func(k Continuation[T]) Continuation[T] {
+			return a(func(b *V[T]) bool {
+				return op(k, node, b, options...)
+			})
+		}
+	}
+}
