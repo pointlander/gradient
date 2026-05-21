@@ -4,6 +4,9 @@
 
 package main
 
+// LFSRMask is a LFSR mask with a maximum period
+const LFSRMask = 0x80000057
+
 // Type is a type of matrix
 type Type uint8
 
@@ -56,6 +59,14 @@ type (
 		Cache    map[int][]T
 	}
 )
+
+// Next returns the next random number
+func (r *RNG) Next() uint32 {
+	lfsr := *r
+	lfsr = (lfsr >> 1) ^ (-(lfsr & 1) & LFSRMask)
+	*r = lfsr
+	return uint32(lfsr)
+}
 
 // Clear clears the cache
 func (c *Context[T]) Clear() {
@@ -148,8 +159,8 @@ func (context *Context[T]) NewSet() Set[T] {
 func (s *Set[T]) Add(name string, d ...int) {
 	v := NewV[T](d...)
 	v.N = name
-	s.Weights = append(s.Weights, &v)
-	s.ByName[name] = &v
+	s.Weights = append(s.Weights, v)
+	s.ByName[name] = v
 }
 
 // Get gets weights from the set by name
@@ -162,8 +173,8 @@ func (s *Set[T]) Copy(context *Context[T]) Set[T] {
 	n := context.NewSet()
 	for i := range s.Weights {
 		cp := s.Weights[i].Copy()
-		n.Weights = append(n.Weights, &cp)
-		n.ByName[cp.N] = &cp
+		n.Weights = append(n.Weights, cp)
+		n.ByName[cp.N] = cp
 	}
 	return n
 }
