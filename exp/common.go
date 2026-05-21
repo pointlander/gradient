@@ -131,3 +131,46 @@ func (context *Context[T]) U(op Unary[T]) func(a Meta[T], options ...map[string]
 		}
 	}
 }
+
+// Panic marks a place we should never get to
+func Panic[T Number](a *V[T]) bool {
+	panic("should not be here")
+}
+
+// NewSet creates a new weight set
+func (context *Context[T]) NewSet() Set[T] {
+	return Set[T]{
+		ByName: make(map[string]*V[T]),
+	}
+}
+
+// Add adds weights to a set
+func (s *Set[T]) Add(name string, d ...int) {
+	v := NewV[T](d...)
+	v.N = name
+	s.Weights = append(s.Weights, &v)
+	s.ByName[name] = &v
+}
+
+// Get gets weights from the set by name
+func (s *Set[T]) Get(name string) Meta[T] {
+	return s.ByName[name].Meta()
+}
+
+// Copy generates a copy of a set
+func (s *Set[T]) Copy(context *Context[T]) Set[T] {
+	n := context.NewSet()
+	for i := range s.Weights {
+		cp := s.Weights[i].Copy()
+		n.Weights = append(n.Weights, &cp)
+		n.ByName[cp.N] = &cp
+	}
+	return n
+}
+
+// Zero zeros the partial derivatives
+func (s *Set[T]) Zero() {
+	for i := range s.Weights {
+		s.Weights[i].Zero()
+	}
+}
