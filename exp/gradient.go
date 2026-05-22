@@ -249,8 +249,6 @@ func (context *Context[T]) Sigmoid(k Continuation[T], node int, a *V[T], options
 	if k(c) {
 		return true
 	}
-	var one Math[T]
-	one = one.Set(1.0)
 	for i, j := range c.D {
 		cx := c.X[i]
 		a.D[i] += j * cx * (1 - cx)

@@ -277,7 +277,7 @@ func sign[T Number](x T) int {
 	}
 }
 
-type Math[T Number] interface {
+/*type Math[T Number] interface {
 	Set(T) Math[T]
 	Add(Math[T]) Math[T]
 	Sub(Math[T]) Math[T]
@@ -526,4 +526,4 @@ func (c C64) Sign() int {
 
 func (c C128) Sign() int {
 	return 0
-}
+}*/

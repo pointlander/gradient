@@ -16,13 +16,13 @@ const (
 )
 
 type (
-	F32  float32
-	F64  float64
-	C64  complex64
-	C128 complex128
+	//F32  float32
+	//F64  float64
+	//C64  complex64
+	//C128 complex128
 	// Number is a number
 	Number interface {
-		F32 | F64 | C64 | C128
+		~float32 | ~float64 | ~complex64 | ~complex128
 	}
 	// RNG is a random number generator
 	RNG uint32
@@ -184,4 +184,14 @@ func (s *Set[T]) Zero() {
 	for i := range s.Weights {
 		s.Weights[i].Zero()
 	}
+}
+
+// Gradient computes the gradient
+func Gradient[T Number](a Meta[T]) (cost V[T]) {
+	a(func(a *V[T]) bool {
+		cost = *a
+		a.D[0] = 1
+		return false
+	})
+	return
 }
