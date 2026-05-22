@@ -37,7 +37,7 @@ func Identity[T Number](s ...int) *V[T] {
 	}
 	j := 0
 	for i := 0; i < size; i += s[0] {
-		identity.X[i+j].Set(1.0)
+		identity.X[i+j] = identity.X[i+j].Set(1.0)
 		j++
 	}
 	return &identity
@@ -64,7 +64,7 @@ func (a *V[T]) Meta() Meta[T] {
 // Zero zeros the partial derivatives
 func (a *V[T]) Zero() {
 	for i := range a.D {
-		a.D[i].Set(0)
+		a.D[i] = a.D[i].Set(0)
 	}
 }
 
@@ -213,7 +213,7 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 func (a *V[T]) Sigmoid() *V[T] {
 	c := NewV[T](a.S...)
 	var one Math[T]
-	one.Set(1.0)
+	one = one.Set(1.0)
 	var zero Math[T]
 	for _, j := range a.X {
 		e := j.Exp()

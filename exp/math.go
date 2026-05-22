@@ -40,20 +40,20 @@ type Math[T Number] interface {
 }
 
 // Add
-func (f F32) Set() F32 {
-	return f
+func (f F32) Set(a F32) F32 {
+	return a
 }
 
-func (f F64) Set() F64 {
-	return f
+func (f F64) Set(a F64) F64 {
+	return a
 }
 
-func (c C64) Set() C64 {
-	return c
+func (c C64) Set(a C64) C64 {
+	return a
 }
 
-func (c C128) Set() C128 {
-	return c
+func (c C128) Set(a C128) C128 {
+	return a
 }
 
 // Add

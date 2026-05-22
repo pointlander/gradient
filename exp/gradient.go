@@ -250,7 +250,7 @@ func (context *Context[T]) Sigmoid(k Continuation[T], node int, a *V[T], options
 		return true
 	}
 	var one Math[T]
-	one.Set(1.0)
+	one = one.Set(1.0)
 	for i, j := range c.D {
 		cx := c.X[i]
 		a.D[i] = a.D[i].Add(j.Mul(cx.Mul(one.Sub(cx))))
