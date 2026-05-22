@@ -15,8 +15,8 @@ func (context *Context[T]) Copy(k Continuation[T], node int, dst, src *V[T], opt
 		return true
 	}
 	for i, j := range c.D {
-		src.D[i] = src.D[i].Add(j)
-		dst.D[i] = dst.D[i].Add(j)
+		src.D[i] += j
+		dst.D[i] += j
 	}
 	return false
 }
@@ -47,15 +47,15 @@ func (context *Context[T]) Add(k Continuation[T], node int, a, b *V[T], options 
 					continue
 				}
 				d := c.D[index]
-				a.D[index] = a.D[index].Add(d)
-				b.D[index%length] = b.D[index%length].Add(d)
+				a.D[index] += d
+				b.D[index%length] += d
 				index++
 			}
 		}
 	} else {
 		for i, j := range c.D {
-			a.D[i] = a.D[i].Add(j)
-			b.D[i%length] = b.D[i%length].Add(j)
+			a.D[i] += j
+			b.D[i%length] += j
 		}
 	}
 	return false
@@ -77,8 +77,8 @@ func (context *Context[T]) Sub(k Continuation[T], node int, a, b *V[T], options 
 		return true
 	}
 	for i, j := range c.D {
-		a.D[i] = a.D[i].Add(j)
-		b.D[i%length] = b.D[i%length].Sub(j)
+		a.D[i] += j
+		b.D[i%length] -= j
 	}
 	return false
 }
@@ -119,7 +119,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 		// a derivatives
 		go func() {
 			derivativeDone := make(chan bool, 8)
-			derivatives := func(index int, ad []Math[T]) {
+			derivatives := func(index int, ad []T) {
 				rows, bi := a.S[1], 0
 				for i := 0; i < sizeB; i += width {
 					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
@@ -152,7 +152,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 
 		// b derivatives
 		derivativeDone := make(chan bool, 8)
-		derivatives := func(index int, bd []Math[T]) {
+		derivatives := func(index int, bd []T) {
 			rng := a.Seed
 			for j := 0; j < sizeA; j += width {
 				if rng.Next() > dropout {
@@ -186,7 +186,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 	// a derivatives
 	go func() {
 		derivativeDone := make(chan bool, 8)
-		derivatives := func(index int, ad []Math[T]) {
+		derivatives := func(index int, ad []T) {
 			rows, bi := a.S[1], 0
 			for i := 0; i < sizeB; i += width {
 				bv, cd := b.X[i:i+width], c.D[index+bi*rows]
@@ -211,7 +211,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 
 	// b derivatives
 	derivativeDone := make(chan bool, 8)
-	derivatives := func(index int, bd []Math[T]) {
+	derivatives := func(index int, bd []T) {
 		for j := 0; j < sizeA; j += width {
 			av, cd := a.X[j:j+width], c.D[index]
 
@@ -253,7 +253,34 @@ func (context *Context[T]) Sigmoid(k Continuation[T], node int, a *V[T], options
 	one = one.Set(1.0)
 	for i, j := range c.D {
 		cx := c.X[i]
-		a.D[i] = a.D[i].Add(j.Mul(cx.Mul(one.Sub(cx))))
+		a.D[i] += j * cx * (1 - cx)
+	}
+	return false
+}
+
+// Quadratic computes the quadratic cost of two tensors
+func (context *Context[T]) Quadratic(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
+	width := a.S[0]
+	c, size := NewV[T](a.S[1]), len(a.X)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c = a.Quadratic(b)
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	index := 0
+	for i := 0; i < size; i += width {
+		av, bv, ad, bd, d := a.X[i:i+width], b.X[i:i+width], a.D[i:i+width], b.D[i:i+width], c.D[index]
+		for j, ax := range av {
+			ad[j] += (ax - bv[j]) * d
+			bd[j] += (bv[j] - ax) * d
+		}
+		index++
 	}
 	return false
 }

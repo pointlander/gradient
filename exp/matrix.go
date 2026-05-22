@@ -15,8 +15,8 @@ func NewV[T Number](s ...int) *V[T] {
 	}
 	size := s[0] * s[1]
 	return &V[T]{
-		X: make([]Math[T], 0, size),
-		D: make([]Math[T], size),
+		X: make([]T, 0, size),
+		D: make([]T, size),
 		S: s,
 	}
 }
@@ -31,13 +31,13 @@ func Identity[T Number](s ...int) *V[T] {
 	}
 	size := s[0] * s[1]
 	identity := V[T]{
-		X: make([]Math[T], size),
-		D: make([]Math[T], size),
+		X: make([]T, size),
+		D: make([]T, size),
 		S: s,
 	}
 	j := 0
 	for i := 0; i < size; i += s[0] {
-		identity.X[i+j] = identity.X[i+j].Set(1.0)
+		identity.X[i+j] = 1.0
 		j++
 	}
 	return &identity
@@ -48,7 +48,7 @@ func (a *V[T]) Copy() *V[T] {
 	return &V[T]{
 		N: a.N,
 		X: a.X,
-		D: make([]Math[T], len(a.D)),
+		D: make([]T, len(a.D)),
 		S: a.S,
 	}
 }
@@ -64,12 +64,12 @@ func (a *V[T]) Meta() Meta[T] {
 // Zero zeros the partial derivatives
 func (a *V[T]) Zero() {
 	for i := range a.D {
-		a.D[i] = a.D[i].Set(0)
+		a.D[i] = 0
 	}
 }
 
 // Set sets the values and zeros the partial derivatives
-func (a *V[T]) Set(values []Math[T]) {
+func (a *V[T]) Set(values []T) {
 	for i, value := range values {
 		if i >= len(a.X) {
 			a.X = append(a.X, value)
@@ -105,7 +105,6 @@ func (a *V[T]) Add(b *V[T]) *V[T] {
 	}
 
 	c := NewV[T](a.S...)
-	var zero Math[T]
 	if a.Seed != 0 {
 		dropout, index := uint32((1-a.Drop)*math.MaxUint32), 0
 		c.Seed, c.Drop = a.Seed, a.Drop
@@ -113,17 +112,17 @@ func (a *V[T]) Add(b *V[T]) *V[T] {
 			rng := a.Seed
 			for j := 0; j < a.S[0]; j++ {
 				if rng.Next() > dropout {
-					c.X = append(c.X, zero)
+					c.X = append(c.X, 0)
 					index++
 					continue
 				}
-				c.X = append(c.X, a.X[index].Add(b.X[index%length]))
+				c.X = append(c.X, a.X[index]+b.X[index%length])
 				index++
 			}
 		}
 	} else {
 		for i, j := range a.X {
-			c.X = append(c.X, j.Add(b.X[i%length]))
+			c.X = append(c.X, j+b.X[i%length])
 		}
 	}
 	return c
@@ -140,7 +139,7 @@ func (a *V[T]) Sub(b *V[T]) *V[T] {
 	}
 	c := NewV[T](a.S...)
 	for i, j := range a.X {
-		c.X = append(c.X, j.Sub(b.X[i%length]))
+		c.X = append(c.X, j-b.X[i%length])
 	}
 	return c
 }
@@ -160,7 +159,7 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 	if a.Seed != 0 {
 		c.Seed, c.Drop = a.Seed, a.Drop
 		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-		mul := func(bv []Math[T], i int) {
+		mul := func(bv []T, i int) {
 			rng := a.Seed
 			for j := 0; j < sizeA; j += width {
 				if rng.Next() > dropout {
@@ -185,12 +184,12 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 			<-done
 		}
 	} else {
-		mul := func(bv []Math[T], i int) {
+		mul := func(bv []T, i int) {
 			for j := 0; j < sizeA; j += width {
-				var sum Math[T]
+				var sum T
 				av := a.X[j : j+width]
 				for k, bx := range bv {
-					sum = sum.Add(av[k].Mul(bx))
+					sum += av[k] * bx
 				}
 				c.X[i] = sum
 				i++
@@ -212,20 +211,39 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 // Sigmoid computes the sigmoid of a vector
 func (a *V[T]) Sigmoid() *V[T] {
 	c := NewV[T](a.S...)
-	var one Math[T]
-	one = one.Set(1.0)
-	var zero Math[T]
 	for _, j := range a.X {
-		e := j.Exp()
-		if e.IsInf() {
-			if e.Sign() == 1 {
-				c.X = append(c.X, one)
+		e := exp(j)
+		if isinf(e) {
+			if sign(e) == 1 {
+				c.X = append(c.X, 1.0)
 			} else {
-				c.X = append(c.X, zero)
+				c.X = append(c.X, 0)
 			}
 		} else {
-			c.X = append(c.X, e.Div(e.Add(one)))
+			c.X = append(c.X, e/(e+1))
 		}
+	}
+	return c
+}
+
+// Quadratic computes the quadratic cost of two tensors
+func (a *V[T]) Quadratic(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] || a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	c, size := NewV[T](a.S[1]), len(a.X)
+	for i := 0; i < size; i += width {
+		var sum T
+		av, bv := a.X[i:i+width], b.X[i:i+width]
+		for j, ax := range av {
+			p := ax - bv[j]
+			sum += p * p
+		}
+		c.X = append(c.X, sum*.5)
 	}
 	return c
 }
