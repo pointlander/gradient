@@ -16,10 +16,6 @@ const (
 )
 
 type (
-	//F32  float32
-	//F64  float64
-	//C64  complex64
-	//C128 complex128
 	// Number is a number
 	Number interface {
 		~float32 | ~float64 | ~complex64 | ~complex128

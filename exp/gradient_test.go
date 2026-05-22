@@ -36,9 +36,9 @@ func TestMul(t *testing.T) {
 }
 
 func TestXORNetwork(t *testing.T) {
-	rand.Seed(1)
+	rng := rand.New(rand.NewSource(1))
 	random64 := func(a, b float64) float64 {
-		return (b-a)*rand.Float64() + a
+		return (b-a)*rng.Float64() + a
 	}
 
 	type Weight struct {
@@ -79,7 +79,7 @@ func TestXORNetwork(t *testing.T) {
 	cost := Quadratic(l2, output.Meta())
 
 	round := func(a float64) float64 {
-		return math.Round(a*1000000) / 1000000
+		return math.Round(a*1e6) / 1e6
 	}
 	compare := func(name string, a, b float64) {
 		a, b = round(a), round(b)
