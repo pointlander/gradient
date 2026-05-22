@@ -9,15 +9,119 @@ import (
 	"math/cmplx"
 )
 
+func dot[T Number](a, b []Math[T]) Math[T] {
+	var sum Math[T]
+	for i, value := range a {
+		sum = sum.Add(value.Mul(b[i]))
+	}
+	return sum
+}
+
+func axpy[T Number](alpha Math[T], X []Math[T], Y []Math[T]) {
+	for i, y := range Y {
+		Y[i] = alpha.Mul(X[i].Add(y))
+	}
+}
+
 type Math[T Number] interface {
-	Abs() T
-	Sin() T
-	Cos() T
-	Exp() T
-	Log() T
-	Sqrt() T
+	Set(T) Math[T]
+	Add(Math[T]) Math[T]
+	Sub(Math[T]) Math[T]
+	Mul(Math[T]) Math[T]
+	Div(Math[T]) Math[T]
+	Abs() Math[T]
+	Sin() Math[T]
+	Cos() Math[T]
+	Exp() Math[T]
+	Log() Math[T]
+	Sqrt() Math[T]
 	IsInf() bool
 	Sign() int
+}
+
+// Add
+func (f F32) Set() F32 {
+	return f
+}
+
+func (f F64) Set() F64 {
+	return f
+}
+
+func (c C64) Set() C64 {
+	return c
+}
+
+func (c C128) Set() C128 {
+	return c
+}
+
+// Add
+func (f F32) Add(a F32) F32 {
+	return f + a
+}
+
+func (f F64) Add(a F64) F64 {
+	return f + a
+}
+
+func (c C64) Add(a C64) C64 {
+	return c + a
+}
+
+func (c C128) Add(a C128) C128 {
+	return c + a
+}
+
+// Sub
+func (f F32) Sub(a F32) F32 {
+	return f - a
+}
+
+func (f F64) Sub(a F64) F64 {
+	return f - a
+}
+
+func (c C64) Sub(a C64) C64 {
+	return c - a
+}
+
+func (c C128) Sub(a C128) C128 {
+	return c - a
+}
+
+// Mul
+func (f F32) Mul(a F32) F32 {
+	return f * a
+}
+
+func (f F64) Mul(a F64) F64 {
+	return f * a
+}
+
+func (c C64) Mul(a C64) C64 {
+	return c * a
+}
+
+func (c C128) Mul(a C128) C128 {
+	return c * a
+}
+
+// Div
+func (f F32) Div(a F32) F32 {
+	return f / a
+}
+
+func (f F64) Div(a F64) F64 {
+	return f / a
+}
+
+func (c C64) Div(a C64) C64 {
+	return c / a
+}
+
+func (c C128) Div(a C128) C128 {
+	return c / a
 }
 
 // Abs

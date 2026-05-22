@@ -32,9 +32,9 @@ type (
 		N      string // the name
 		Seed   RNG
 		Drop   float64
-		X      []T   // the tensor
-		D      []T   // the derivative
-		S      []int // the shape
+		X      []Math[T] // the tensor
+		D      []Math[T] // the derivative
+		S      []int     // the shape
 		States [][]T
 	}
 	// Set is a set of V
@@ -56,7 +56,7 @@ type (
 	Context[T Number] struct {
 		Quantize uint
 		Node     int
-		Cache    map[int][]T
+		Cache    map[int][]Math[T]
 	}
 )
 
@@ -70,11 +70,11 @@ func (r *RNG) Next() uint32 {
 
 // Clear clears the cache
 func (c *Context[T]) Clear() {
-	c.Cache = make(map[int][]T)
+	c.Cache = make(map[int][]Math[T])
 }
 
 // Get gets a value from the cache
-func (c *Context[T]) Get(node int) []T {
+func (c *Context[T]) Get(node int) []Math[T] {
 	if c.Cache != nil {
 		return c.Cache[node]
 	}
@@ -82,7 +82,7 @@ func (c *Context[T]) Get(node int) []T {
 }
 
 // Set sets a value in the cache
-func (c *Context[T]) Set(node int, value []T) {
+func (c *Context[T]) Set(node int, value []Math[T]) {
 	if c.Cache != nil {
 		c.Cache[node] = value
 	}

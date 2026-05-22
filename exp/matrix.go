@@ -15,8 +15,8 @@ func NewV[T Number](s ...int) *V[T] {
 	}
 	size := s[0] * s[1]
 	return &V[T]{
-		X: make([]T, 0, size),
-		D: make([]T, size),
+		X: make([]Math[T], 0, size),
+		D: make([]Math[T], size),
 		S: s,
 	}
 }
@@ -31,13 +31,13 @@ func Identity[T Number](s ...int) *V[T] {
 	}
 	size := s[0] * s[1]
 	identity := V[T]{
-		X: make([]T, size),
-		D: make([]T, size),
+		X: make([]Math[T], size),
+		D: make([]Math[T], size),
 		S: s,
 	}
 	j := 0
 	for i := 0; i < size; i += s[0] {
-		identity.X[i+j] = 1
+		identity.X[i+j].Set(1.0)
 		j++
 	}
 	return &identity
@@ -48,7 +48,7 @@ func (a *V[T]) Copy() *V[T] {
 	return &V[T]{
 		N: a.N,
 		X: a.X,
-		D: make([]T, len(a.D)),
+		D: make([]Math[T], len(a.D)),
 		S: a.S,
 	}
 }
@@ -64,12 +64,12 @@ func (a *V[T]) Meta() Meta[T] {
 // Zero zeros the partial derivatives
 func (a *V[T]) Zero() {
 	for i := range a.D {
-		a.D[i] = 0
+		a.D[i].Set(0)
 	}
 }
 
 // Set sets the values and zeros the partial derivatives
-func (a *V[T]) Set(values []T) {
+func (a *V[T]) Set(values []Math[T]) {
 	for i, value := range values {
 		if i >= len(a.X) {
 			a.X = append(a.X, value)
@@ -105,6 +105,7 @@ func (a *V[T]) Add(b *V[T]) *V[T] {
 	}
 
 	c := NewV[T](a.S...)
+	var zero Math[T]
 	if a.Seed != 0 {
 		dropout, index := uint32((1-a.Drop)*math.MaxUint32), 0
 		c.Seed, c.Drop = a.Seed, a.Drop
@@ -112,17 +113,118 @@ func (a *V[T]) Add(b *V[T]) *V[T] {
 			rng := a.Seed
 			for j := 0; j < a.S[0]; j++ {
 				if rng.Next() > dropout {
-					c.X = append(c.X, 0)
+					c.X = append(c.X, zero)
 					index++
 					continue
 				}
-				c.X = append(c.X, a.X[index]+b.X[index%length])
+				c.X = append(c.X, a.X[index].Add(b.X[index%length]))
 				index++
 			}
 		}
 	} else {
 		for i, j := range a.X {
-			c.X = append(c.X, j+b.X[i%length])
+			c.X = append(c.X, j.Add(b.X[i%length]))
+		}
+	}
+	return c
+}
+
+// Sub subtracts two tensors
+func (a *V[T]) Sub(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width, length := a.S[0], len(b.X)
+	if width != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
+		panic("dimensions are not the same")
+	}
+	c := NewV[T](a.S...)
+	for i, j := range a.X {
+		c.X = append(c.X, j.Sub(b.X[i%length]))
+	}
+	return c
+}
+
+// Mul multiplies two tensors
+func (a *V[T]) Mul(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] {
+		panic("first dimension is not the same")
+	}
+	sizeA, sizeB, c, done :=
+		len(a.X), len(b.X), NewV[T](a.S[1], b.S[1]), make(chan bool, 8)
+	c.X = c.X[:cap(c.X)]
+	if a.Seed != 0 {
+		c.Seed, c.Drop = a.Seed, a.Drop
+		dropout := uint32((1 - a.Drop) * math.MaxUint32)
+		mul := func(bv []Math[T], i int) {
+			rng := a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					i++
+					continue
+				}
+
+				av := a.X[j : j+width]
+				sum := dot(av, bv)
+
+				c.X[i] = sum
+				i++
+			}
+			done <- true
+		}
+		index, step := 0, sizeA/width
+		for i := 0; i < sizeB; i += width {
+			go mul(b.X[i:i+width], index)
+			index += step
+		}
+		for i := 0; i < sizeB; i += width {
+			<-done
+		}
+	} else {
+		mul := func(bv []Math[T], i int) {
+			for j := 0; j < sizeA; j += width {
+				var sum Math[T]
+				av := a.X[j : j+width]
+				for k, bx := range bv {
+					sum = sum.Add(av[k].Mul(bx))
+				}
+				c.X[i] = sum
+				i++
+			}
+			done <- true
+		}
+		index, step := 0, sizeA/width
+		for i := 0; i < sizeB; i += width {
+			go mul(b.X[i:i+width], index)
+			index += step
+		}
+		for i := 0; i < sizeB; i += width {
+			<-done
+		}
+	}
+	return c
+}
+
+// Sigmoid computes the sigmoid of a vector
+func (a *V[T]) Sigmoid() *V[T] {
+	c := NewV[T](a.S...)
+	var one Math[T]
+	one.Set(1.0)
+	var zero Math[T]
+	for _, j := range a.X {
+		e := j.Exp()
+		if e.IsInf() {
+			if e.Sign() == 1 {
+				c.X = append(c.X, one)
+			} else {
+				c.X = append(c.X, zero)
+			}
+		} else {
+			c.X = append(c.X, e.Div(e.Add(one)))
 		}
 	}
 	return c

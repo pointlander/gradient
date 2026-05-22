@@ -1,6 +1,6 @@
 module github.com/pointlander/gradient
 
-go 1.18
+go 1.25.0
 
 replace github.com/ALTree/bigfloat => github.com/pointlander/bigfloat v0.0.0-20201204042606-2cd95208a637
 
@@ -10,3 +10,5 @@ require (
 	github.com/ziutek/blas v0.0.0-20190227122918-da4ca23e90bb
 	google.golang.org/protobuf v1.24.0
 )
+
+require github.com/google/go-cmp v0.6.0 // indirect
