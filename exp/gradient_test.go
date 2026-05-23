@@ -8,8 +8,6 @@ import (
 	"math"
 	"math/rand"
 	"testing"
-
-	"github.com/pointlander/gradient/sf64"
 )
 
 func TestMul(t *testing.T) {
@@ -42,30 +40,41 @@ func TestXORNetwork(t *testing.T) {
 	}
 
 	type Weight struct {
-		sf64.V
+		W     *V[float64]
 		Delta float64
 	}
 
-	i1, i2, o, weights := sf64.V{}, sf64.V{}, sf64.V{}, [9]Weight{}
+	ctxt := Context[float64]{}
+	XSigmoid := ctxt.U(ctxt.Sigmoid)
+	XAdd := ctxt.B(ctxt.Add)
+	XSub := ctxt.B(ctxt.Sub)
+	XMul := ctxt.B(ctxt.Mul)
+
+	i1, i2, o, weights := NewV[float64](1), NewV[float64](1), NewV[float64](1), [9]Weight{}
+	i1.X = i1.X[:cap(i1.X)]
+	i2.X = i2.X[:cap(i2.X)]
+	o.X = o.X[:cap(o.X)]
 	for i := range weights {
-		weights[i].X = random64(-1, 1)
+		weights[i].W = NewV[float64](1)
+		weights[i].W.X = weights[i].W.X[:cap(weights[i].W.X)]
+		weights[i].W.X[0] = random64(-1, 1)
 	}
-	n1 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(i1.Meta(), weights[0].Meta()), sf64.Mul(i2.Meta(), weights[1].Meta())), weights[2].Meta()))
-	n2 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(i1.Meta(), weights[3].Meta()), sf64.Mul(i2.Meta(), weights[4].Meta())), weights[5].Meta()))
-	n3 := sf64.Sigmoid(sf64.Add(sf64.Add(sf64.Mul(n1, weights[6].Meta()), sf64.Mul(n2, weights[7].Meta())), weights[8].Meta()))
-	ds := sf64.Sub(n3, o.Meta())
-	half := sf64.V{X: .5}
-	costs := sf64.Mul(sf64.Mul(ds, ds), half.Meta())
+	n1 := XSigmoid(XAdd(XAdd(XMul(i1.Meta(), weights[0].W.Meta()), XMul(i2.Meta(), weights[1].W.Meta())), weights[2].W.Meta()))
+	n2 := XSigmoid(XAdd(XAdd(XMul(i1.Meta(), weights[3].W.Meta()), XMul(i2.Meta(), weights[4].W.Meta())), weights[5].W.Meta()))
+	n3 := XSigmoid(XAdd(XAdd(XMul(n1, weights[6].W.Meta()), XMul(n2, weights[7].W.Meta())), weights[8].W.Meta()))
+	ds := XSub(n3, o.Meta())
+	half := V[float64]{S: []int{1, 1}, X: []float64{.5}, D: make([]float64, 1)}
+	costs := XMul(XMul(ds, ds), half.Meta())
 
 	context := Context[float64]{}
 	input, output := NewV[float64](2), NewV[float64](1)
 	w1, b1 := NewV[float64](2, 2), NewV[float64](2)
 	w2, b2 := NewV[float64](2), NewV[float64](1)
 	parameters := []*V[float64]{w1, b1, w2, b2}
-	w1.Set([]float64{weights[0].X, weights[1].X, weights[3].X, weights[4].X})
-	b1.Set([]float64{weights[2].X, weights[5].X})
-	w2.Set([]float64{weights[6].X, weights[7].X})
-	b2.Set([]float64{weights[8].X})
+	w1.Set([]float64{weights[0].W.X[0], weights[1].W.X[0], weights[3].W.X[0], weights[4].W.X[0]})
+	b1.Set([]float64{weights[2].W.X[0], weights[5].W.X[0]})
+	w2.Set([]float64{weights[6].W.X[0], weights[7].W.X[0]})
+	b2.Set([]float64{weights[8].W.X[0]})
 	var deltas [][]float64
 	for _, p := range parameters {
 		deltas = append(deltas, make([]float64, len(p.X)))
@@ -116,20 +125,20 @@ func TestXORNetwork(t *testing.T) {
 				}
 			}
 
-			i1.D, i2.D, o.D, i1.X, i2.X, o.X = 0, 0, 0, data[j][0], data[j][1], data[j][2]
-			totals += sf64.Gradient(costs).X
-			compare("w1 0", w1.D[0], weights[0].D)
-			compare("w1 1", w1.D[1], weights[1].D)
-			compare("b1 0", b1.D[0], weights[2].D)
-			compare("w1 2", w1.D[2], weights[3].D)
-			compare("w1 3", w1.D[3], weights[4].D)
-			compare("b1 1", b1.D[1], weights[5].D)
-			compare("w2 0", w2.D[0], weights[6].D)
-			compare("w2 1", w2.D[1], weights[7].D)
-			compare("b2 0", b2.D[0], weights[8].D)
+			i1.D[0], i2.D[0], o.D[0], i1.X[0], i2.X[0], o.X[0] = 0, 0, 0, data[j][0], data[j][1], data[j][2]
+			totals += Gradient(costs).X[0]
+			compare("w1 0", w1.D[0], weights[0].W.D[0])
+			compare("w1 1", w1.D[1], weights[1].W.D[0])
+			compare("b1 0", b1.D[0], weights[2].W.D[0])
+			compare("w1 2", w1.D[2], weights[3].W.D[0])
+			compare("w1 3", w1.D[3], weights[4].W.D[0])
+			compare("b1 1", b1.D[1], weights[5].W.D[0])
+			compare("w2 0", w2.D[0], weights[6].W.D[0])
+			compare("w2 1", w2.D[1], weights[7].W.D[0])
+			compare("b2 0", b2.D[0], weights[8].W.D[0])
 			for k := range weights {
-				weights[k].Delta, weights[k].D = alpha*weights[k].Delta-eta*weights[k].D, 0
-				weights[k].X += weights[k].Delta
+				weights[k].Delta, weights[k].W.D[0] = alpha*weights[k].Delta-eta*weights[k].W.D[0], 0
+				weights[k].W.X[0] += weights[k].Delta
 			}
 		}
 		t.Log(i, total, totals)
