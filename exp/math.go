@@ -276,3 +276,31 @@ func sign[T Number](x T) int {
 		return 0
 	}
 }
+
+func convert[T Number](x float64) T {
+	switch any(x).(type) {
+	case float32:
+		switch v := any(float32(x)).(type) {
+		case T:
+			return v
+		}
+	case float64:
+		switch v := any(x).(type) {
+		case T:
+			return v
+		}
+	case complex64:
+		switch v := any(complex(float32(x), 0)).(type) {
+		case T:
+			return v
+		}
+	case complex128:
+		switch v := any(complex(x, 0)).(type) {
+		case T:
+			return v
+		}
+	default:
+		return 0
+	}
+	return 0
+}

@@ -208,6 +208,208 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 	return c
 }
 
+// Square squares a tensor
+func (a *V[T]) Square() *V[T] {
+	b := a
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] {
+		panic("first dimension is not the same")
+	}
+	sizeA, sizeB, c, done :=
+		len(a.X), len(b.X), NewV[T](a.S[1], b.S[1]), make(chan bool, 8)
+	c.X = c.X[:cap(c.X)]
+	if a.Seed != 0 {
+		c.Seed, c.Drop = a.Seed, a.Drop
+		dropout := uint32((1 - a.Drop) * math.MaxUint32)
+		mul := func(bv []T, i int) {
+			rng := a.Seed
+			for j := 0; j < sizeA; j += width {
+				if rng.Next() > dropout {
+					i++
+					continue
+				}
+
+				av := a.X[j : j+width]
+				sum := dot(av, bv)
+
+				c.X[i] = sum
+				i++
+			}
+			done <- true
+		}
+		index, step := 0, sizeA/width
+		for i := 0; i < sizeB; i += width {
+			mul(b.X[i:i+width], index)
+			index += step
+		}
+		for i := 0; i < sizeB; i += width {
+			<-done
+		}
+	} else {
+		mul := func(bv []T, i int) {
+			for j := 0; j < sizeA; j += width {
+				av, sum := a.X[j:j+width], T(0.0)
+				for k, bx := range bv {
+					sum += av[k] * bx
+				}
+				c.X[i] = sum
+				i++
+			}
+		}
+		index, step := 0, sizeA/width
+		for i := 0; i < sizeB; i += width {
+			mul(b.X[i:i+width], index)
+			index += step
+		}
+	}
+	return c
+}
+
+// Hadamard computes the hadamard product of two tensors
+func (a *V[T]) Hadamard(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	length := len(b.X)
+	if a.S[0] != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
+		panic("dimensions are not the same")
+	}
+	c := NewV[T](a.S...)
+	for i, j := range a.X {
+		c.X = append(c.X, j*b.X[i%length])
+	}
+	return c
+}
+
+// T the transpose of the matrix
+func (a *V[T]) T() *V[T] {
+	c := NewV[T](a.S[1], a.S[0])
+	for p := 0; p < a.S[0]; p++ {
+		for q := 0; q < a.S[1]; q++ {
+			c.X = append(c.X, a.X[q*a.S[0]+p])
+		}
+	}
+	return c
+}
+
+// Slice a slice of the matrix
+func (a *V[T]) Slice(begin, end, d int) *V[T] {
+	width := a.S[0]
+	if d == 2 {
+		c, size := NewV[T](end-begin, a.S[1]), len(a.X)
+		for i := 0; i < size; i += width {
+			av := a.X[i+begin : i+end]
+			for _, ax := range av {
+				c.X = append(c.X, ax)
+			}
+		}
+		return c
+	}
+
+	c := NewV[T](end-begin, 1)
+	av := a.X[begin:end]
+	for _, ax := range av {
+		c.X = append(c.X, ax)
+	}
+	return c
+}
+
+// Concat concats two tensors
+func (a *V[T]) Concat(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	if a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	widthA, widthB := a.S[0], b.S[0]
+	c, i, j := NewV[T](widthA+widthB, a.S[1]), 0, 0
+	for r := 0; r < a.S[1]; r++ {
+		av, bv := a.X[i:i+widthA], b.X[j:j+widthB]
+		c.X = append(c.X, av...)
+		c.X = append(c.X, bv...)
+		i += widthA
+		j += widthB
+	}
+	return c
+}
+
+// Dropout is a dropout regularization function
+func (a *V[T]) Dropout(drop float64, drops []int) *V[T] {
+	size, width := len(a.X), a.S[0]
+	c, drops, factor := NewV[T](a.S...), make([]int, width), convert[T](1.0/(1.0-drop))
+	c.X = c.X[:cap(c.X)]
+	for i := 0; i < size; i += width {
+		for j, ax := range a.X[i : i+width] {
+			if drops[j] == 1 {
+				c.X[i+j] = ax * factor
+			}
+		}
+	}
+	return c
+}
+
+// Sin the sine of a number
+func (a *V[T]) Sin() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		c.X = append(c.X, sin(j))
+	}
+	return c
+}
+
+// Cos the cosine of a tensor
+func (a *V[T]) Cos() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		c.X = append(c.X, cos(j))
+	}
+	return c
+}
+
+// Exp the base e exponential of a tensor
+func (a *V[T]) Exp() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		c.X = append(c.X, exp(j))
+	}
+	return c
+}
+
+// Log the natural logarithm of a tensor
+func (a *V[T]) Log() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		c.X = append(c.X, log(j))
+	}
+	return c
+}
+
+// Sqrt is the sqrt of a number
+func (a *V[T]) Sqrt() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		c.X = append(c.X, sqrt(j))
+	}
+	return c
+}
+
+// Inv is the inverse of a number
+func (a *V[T]) Inv() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		if j == 0 {
+			c.X = append(c.X, 0)
+			continue
+		}
+		c.X = append(c.X, 1/j)
+	}
+	return c
+}
+
 // Sigmoid computes the sigmoid of a vector
 func (a *V[T]) Sigmoid() *V[T] {
 	c := NewV[T](a.S...)

@@ -4,6 +4,11 @@
 
 package main
 
+import (
+	"encoding/gob"
+	"os"
+)
+
 // LFSRMask is a LFSR mask with a maximum period
 const LFSRMask = 0x80000057
 
@@ -24,7 +29,7 @@ type (
 	RNG uint32
 	// V is a tensor value
 	V[T Number] struct {
-		T      Type
+		Type
 		N      string // the name
 		Seed   RNG
 		Drop   float64
@@ -35,6 +40,8 @@ type (
 	}
 	// Set is a set of V
 	Set[T Number] struct {
+		Cost    float64
+		Epoch   uint64
 		Weights []*V[T]
 		ByName  map[string]*V[T]
 	}
@@ -180,6 +187,32 @@ func (s *Set[T]) Zero() {
 	for i := range s.Weights {
 		s.Weights[i].Zero()
 	}
+}
+
+// Save saves a set of weights
+func (s *Set[T]) Save(file string, cost float64, epoch uint64) error {
+	s.Cost = cost
+	s.Epoch = epoch
+	output, err := os.Create("file")
+	if err != nil {
+		return err
+	}
+	encoder := gob.NewEncoder(output)
+	return encoder.Encode(s)
+}
+
+// Open opens a set of weights
+func (s *Set[T]) Open(name string) (float64, uint64, error) {
+	input, err := os.Open(name)
+	if err != nil {
+		return -1, 0, err
+	}
+	decoder := gob.NewDecoder(input)
+	err = decoder.Decode(s)
+	if err != nil {
+		return -1, 0, err
+	}
+	return s.Cost, s.Epoch, nil
 }
 
 // Gradient computes the gradient
