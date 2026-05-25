@@ -664,6 +664,218 @@ func (context *Context[T]) Sigmoid(k Continuation[T], node int, a *V[T], options
 	return false
 }
 
+// TanH the hyperbolic tangent of a tensor
+func (context *Context[T]) TanH(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	c := NewV[T](a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c = a.TanH()
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	for i, j := range c.D {
+		cx := c.X[i]
+		a.D[i] += j * (1 - cx*cx)
+	}
+	return false
+}
+
+// Softplus the softplus activation function
+func (context *Context[T]) Softplus(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	c := NewV[T](a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		a = a.Softplus()
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	for i, j := range c.D {
+		a.D[i] += j / (1 + exp(-a.X[i]))
+	}
+	return false
+}
+
+// Everett computes the split reality activation function
+func (context *Context[T]) Everett(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	c := NewV[T](2*a.S[0], a.S[1])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c = a.Everett()
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	if a.Seed != 0 {
+		dropout := uint32((1 - a.Drop) * math.MaxUint32)
+		index := 0
+		for i := 0; i < a.S[1]; i++ {
+			rng := a.Seed
+			for j := 0; j < a.S[0]; j++ {
+				if rng.Next() > dropout {
+					index += 2
+					continue
+				}
+				if c.X[index] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
+					a.D[index>>1] += c.D[index]
+				}
+				if c.X[index+1] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
+					a.D[index>>1] += c.D[index+1]
+				}
+				index += 2
+			}
+		}
+		return false
+	}
+
+	for i, j := range c.D {
+		if c.X[i] != 0 || (c.X[i&^1] == 0 && c.X[i|1] == 0) {
+			a.D[i>>1] += j
+		}
+	}
+	return false
+}
+
+// EverettReLu computes an adapter relu
+func (context *Context[T]) EverettReLu(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	c := NewV[T](2*a.S[0], a.S[1])
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c = a.EverettReLu()
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	for i, j := range c.D {
+		if c.X[i] != 0 {
+			a.D[i>>1] += j
+		}
+	}
+	return false
+}
+
+// ReLu computes the rectified linear activation function
+func (context *Context[T]) ReLu(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	c := NewV[T](a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c = a.ReLu()
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	for i, j := range c.D {
+		if c.X[i] != 0 {
+			a.D[i] += j
+		}
+	}
+	return false
+}
+
+const (
+	// S is the scaling factor for the softmax
+	S = 1.0 - 1e-300
+)
+
+// Softmax is the softmax function for big numbers
+func (context *Context[T]) Softmax(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	c := NewV[T](a.S...)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		S := S
+		if len(options) > 0 {
+			s, ok := options[0]["S"]
+			if ok {
+				S = s.(float64)
+			}
+		}
+		c = a.Softmax(S)
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	for i, d := range c.D {
+		cx := c.X[i]
+		for j := range c.X {
+			if j == i {
+				a.D[j] += d * cx * (1 - cx)
+			} else {
+				a.D[j] -= d * cx * c.X[j]
+			}
+		}
+	}
+	return false
+}
+
+// Sum sums a vector
+func (context *Context[T]) Sum(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	c := NewV[T](1)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c = a.Sum()
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	d := c.D[0]
+	for i := range a.D {
+		a.D[i] += d
+	}
+	return false
+}
+
+// SumRows sums the rows of the matrix
+func (context *Context[T]) SumRows(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	size, width := len(a.X), a.S[0]
+	c := NewV[T](width)
+	cached := context.Get(node)
+	if cached != nil {
+		c.X = cached
+	}
+	if cached == nil {
+		c = c.SumRows()
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
+	}
+	for i := 0; i < size; i += width {
+		for j := range a.D[i : i+width] {
+			a.D[i+j] += c.D[j]
+		}
+	}
+	return false
+}
+
 // Quadratic computes the quadratic cost of two tensors
 func (context *Context[T]) Quadratic(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	width := a.S[0]

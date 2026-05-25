@@ -428,6 +428,189 @@ func (a *V[T]) Sigmoid() *V[T] {
 	return c
 }
 
+// TanH the hyperbolic tangent of a tensor
+func (a *V[T]) TanH() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		e1, e2 := exp(j), exp(-j)
+		c.X = append(c.X, (e1-e2)/(e1+e2))
+	}
+	return c
+}
+
+// Softplus the softplus activation function
+func (a *V[T]) Softplus() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		c.X = append(c.X, log(1+exp(j)))
+	}
+	return c
+}
+
+// Everett computes the split reality activation function
+func (a *V[T]) Everett() *V[T] {
+	c := NewV[T](2*a.S[0], a.S[1])
+	if a.Seed != 0 {
+		c.Seed, c.Drop = a.Seed, a.Drop
+		index, dropout := 0, uint32((1-a.Drop)*math.MaxUint32)
+		for i := 0; i < a.S[1]; i++ {
+			rng := a.Seed
+			for j := 0; j < a.S[0]; j++ {
+				if rng.Next() > dropout {
+					c.X = append(c.X, 0, 0)
+					index++
+					continue
+				}
+				ax := a.X[index]
+				switch tax := any(ax).(type) {
+				case float32:
+					min, max := max(tax, 0), min(tax, 0)
+					factor := convert[float32](1 / (1 - a.Drop))
+					c.X = append(c.X, any(min*factor).(T), any(max*factor).(T))
+				case float64:
+					min, max := max(tax, 0), min(tax, 0)
+					factor := convert[float64](1 / (1 - a.Drop))
+					c.X = append(c.X, any(min*factor).(T), any(max*factor).(T))
+				case complex64:
+					rmin, rmax := max(real(tax), 0), min(real(tax), 0)
+					imin, imax := max(real(tax), 0), min(real(tax), 0)
+					factor := convert[complex64](1 / (1 - a.Drop))
+					c.X = append(c.X, any(complex(rmin, imin)*factor).(T), any(complex(rmax, imax)*factor).(T))
+				case complex128:
+					rmin, rmax := max(real(tax), 0), min(real(tax), 0)
+					imin, imax := max(real(tax), 0), min(real(tax), 0)
+					factor := convert[complex128](1 / (1 - a.Drop))
+					c.X = append(c.X, any(complex(rmin, imin)*factor).(T), any(complex(rmax, imax)*factor).(T))
+				}
+				index++
+			}
+		}
+	} else {
+		for _, j := range a.X {
+			switch tax := any(j).(type) {
+			case float32:
+				min, max := max(tax, 0), min(tax, 0)
+				c.X = append(c.X, any(min).(T), any(max).(T))
+			case float64:
+				min, max := max(tax, 0), min(tax, 0)
+				c.X = append(c.X, any(min).(T), any(max).(T))
+			case complex64:
+				rmin, rmax := max(real(tax), 0), min(real(tax), 0)
+				imin, imax := max(real(tax), 0), min(real(tax), 0)
+				c.X = append(c.X, any(complex(rmin, imin)).(T), any(complex(rmax, imax)).(T))
+			case complex128:
+				rmin, rmax := max(real(tax), 0), min(real(tax), 0)
+				imin, imax := max(real(tax), 0), min(real(tax), 0)
+				c.X = append(c.X, any(complex(rmin, imin)).(T), any(complex(rmax, imax)).(T))
+			}
+		}
+	}
+	return c
+}
+
+// EverettReLu computes an adapter relu
+func (a *V[T]) EverettReLu() *V[T] {
+	c := NewV[T](2*a.S[0], a.S[1])
+	for _, j := range a.X {
+		switch tax := any(j).(type) {
+		case float32:
+			min := max(tax, 0)
+			c.X = append(c.X, 0, any(min).(T))
+		case float64:
+			min := max(tax, 0)
+			c.X = append(c.X, 0, any(min).(T))
+		case complex64:
+			rmin := max(real(tax), 0)
+			imin := max(real(tax), 0)
+			c.X = append(c.X, 0, any(complex(rmin, imin)).(T))
+		case complex128:
+			rmin := max(real(tax), 0)
+			imin := max(real(tax), 0)
+			c.X = append(c.X, 0, any(complex(rmin, imin)).(T))
+		}
+	}
+	return c
+}
+
+// ReLu computes the rectified linear activation function
+func (a *V[T]) ReLu() *V[T] {
+	c := NewV[T](a.S...)
+	for _, j := range a.X {
+		switch tax := any(j).(type) {
+		case float32:
+			min := max(tax, 0)
+			c.X = append(c.X, any(min).(T))
+		case float64:
+			min := max(tax, 0)
+			c.X = append(c.X, any(min).(T))
+		case complex64:
+			rmin := max(real(tax), 0)
+			imin := max(real(tax), 0)
+			c.X = append(c.X, any(complex(rmin, imin)).(T))
+		case complex128:
+			rmin := max(real(tax), 0)
+			imin := max(real(tax), 0)
+			c.X = append(c.X, any(complex(rmin, imin)).(T))
+		}
+	}
+	return c
+}
+
+// Softmax is the softmax function for big numbers
+func (a *V[T]) Softmax(S float64) *V[T] {
+	c, size, width := NewV[T](a.S...), len(a.X), a.S[0]
+	s := convert[T](S)
+	switch any(s).(type) {
+	case float32:
+		var vv float32
+		for _, v := range a.X {
+			vv = max(vv, any(v).(float32))
+		}
+		s *= convert[T](float64(vv))
+	case float64:
+		var vv float64
+		for _, v := range a.X {
+			vv = max(vv, any(v).(float64))
+		}
+		s *= convert[T](float64(vv))
+	}
+	values := make([]T, width)
+	for i := 0; i < size; i += width {
+		sum := T(0.0)
+		for j, ax := range a.X[i : i+width] {
+			values[j] = exp(ax - s)
+			sum += values[j]
+		}
+		for _, cx := range values {
+			c.X = append(c.X, cx/sum)
+		}
+	}
+	return c
+}
+
+// Sum sums a vector
+func (a *V[T]) Sum() *V[T] {
+	c, sum := NewV[T](1), T(0.0)
+	for _, j := range a.X {
+		sum += j
+	}
+	c.X = append(c.X, sum)
+	return c
+}
+
+// SumRows sums the rows of the matrix
+func (a *V[T]) SumRows() *V[T] {
+	size, width := len(a.X), a.S[0]
+	c := NewV[T](width)
+	c.X = c.X[:cap(c.X)]
+	for i := 0; i < size; i += width {
+		for j, ax := range a.X[i : i+width] {
+			c.X[j] += ax
+		}
+	}
+	return c
+}
+
 // Quadratic computes the quadratic cost of two tensors
 func (a *V[T]) Quadratic(b *V[T]) *V[T] {
 	if len(a.S) != 2 || len(b.S) != 2 {
