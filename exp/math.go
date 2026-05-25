@@ -233,6 +233,41 @@ func sqrt[T Number](x T) T {
 	}
 }
 
+func pow[T Number](x, y T) T {
+	switch xx := any(x).(type) {
+	case float32:
+		switch v := any(float32(math.Pow(float64(xx), float64(any(y).(float32))))).(type) {
+		case T:
+			return v
+		default:
+			return x
+		}
+	case float64:
+		switch v := any(math.Pow(xx, any(y).(float64))).(type) {
+		case T:
+			return v
+		default:
+			return x
+		}
+	case complex64:
+		switch v := any(complex64(cmplx.Pow(complex128(xx), complex128(any(y).(complex64))))).(type) {
+		case T:
+			return v
+		default:
+			return x
+		}
+	case complex128:
+		switch v := any(complex128(cmplx.Pow(xx, any(y).(complex128)))).(type) {
+		case T:
+			return v
+		default:
+			return x
+		}
+	default:
+		return x
+	}
+}
+
 func isinf[T Number](x T) bool {
 	switch v := any(x).(type) {
 	case float32:
@@ -243,6 +278,21 @@ func isinf[T Number](x T) bool {
 		return cmplx.IsInf(complex128(v))
 	case complex128:
 		return cmplx.IsInf(v)
+	default:
+		return false
+	}
+}
+
+func isnan[T Number](x T) bool {
+	switch v := any(x).(type) {
+	case float32:
+		return math.IsNaN(float64(v))
+	case float64:
+		return math.IsNaN(v)
+	case complex64:
+		return cmplx.IsNaN(complex128(v))
+	case complex128:
+		return cmplx.IsNaN(v)
 	default:
 		return false
 	}

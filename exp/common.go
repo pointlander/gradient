@@ -6,6 +6,8 @@ package main
 
 import (
 	"encoding/gob"
+	"math/cmplx"
+	"math/rand"
 	"os"
 )
 
@@ -17,6 +19,7 @@ type Type uint8
 
 const (
 	Parameters Type = iota
+	Bias
 	Data
 )
 
@@ -40,10 +43,11 @@ type (
 	}
 	// Set is a set of V
 	Set[T Number] struct {
-		Cost    float64
-		Epoch   uint64
-		Weights []*V[T]
-		ByName  map[string]*V[T]
+		Iteration uint64
+		Cost      float64
+		Epoch     uint64
+		Weights   []*V[T]
+		ByName    map[string]*V[T]
 	}
 	// Continuation is a continuation
 	Continuation[T Number] func(a *V[T]) bool
@@ -166,6 +170,24 @@ func (s *Set[T]) Add(name string, d ...int) {
 	s.ByName[name] = v
 }
 
+// AddBias adds bias weights to a set
+func (s *Set[T]) AddBias(name string, d ...int) {
+	v := NewV[T](d...)
+	v.Type = Bias
+	v.N = name
+	s.Weights = append(s.Weights, v)
+	s.ByName[name] = v
+}
+
+// AddData adds data to a set
+func (s *Set[T]) AddData(name string, d ...int) {
+	v := NewV[T](d...)
+	v.Type = Data
+	v.N = name
+	s.Weights = append(s.Weights, v)
+	s.ByName[name] = v
+}
+
 // Get gets weights from the set by name
 func (s *Set[T]) Get(name string) Meta[T] {
 	return s.ByName[name].Meta()
@@ -182,11 +204,138 @@ func (s *Set[T]) Copy(context *Context[T]) Set[T] {
 	return n
 }
 
+// InitAdam initializes a set for adam optimization
+func (s *Set[T]) InitAdam(rng *rand.Rand) {
+	for ii := range s.Weights {
+		w := s.Weights[ii]
+		if w.Type == Data {
+			w.X = w.X[:cap(w.X)]
+			continue
+		}
+		if w.Type == Bias {
+			w.X = w.X[:cap(w.X)]
+			w.States = make([][]T, StateTotal)
+			for ii := range w.States {
+				w.States[ii] = make([]T, len(w.X))
+			}
+			continue
+		}
+		factor := sqrt(2.0 / convert[T](float64(w.S[0])))
+		for range cap(w.X) {
+			switch any(factor).(type) {
+			case float32:
+				w.X = append(w.X, any(float32(rng.NormFloat64())).(T)*factor)
+			case float64:
+				w.X = append(w.X, any(rng.NormFloat64()).(T)*factor)
+			case complex64:
+				w.X = append(w.X, any(complex64(complex(float32(rng.NormFloat64()), float32(rng.NormFloat64())))).(T)*factor)
+			case complex128:
+				w.X = append(w.X, any(complex128(complex(rng.NormFloat64(), rng.NormFloat64()))).(T)*factor)
+			}
+		}
+		w.States = make([][]T, StateTotal)
+		for ii := range w.States {
+			w.States[ii] = make([]T, len(w.X))
+		}
+	}
+}
+
 // Zero zeros the partial derivatives
 func (s *Set[T]) Zero() {
 	for i := range s.Weights {
 		s.Weights[i].Zero()
 	}
+}
+
+const (
+	// B1 exponential decay of the rate for the first moment estimates
+	B1 = 0.8
+	// B2 exponential decay rate for the second-moment estimates
+	B2 = 0.89
+	// Eta is the learning rate
+	Eta = 1.0e-1
+)
+
+const (
+	// StateM is the state for the mean
+	StateM = iota
+	// StateV is the state for the variance
+	StateV
+	// StateTotal is the total number of states
+	StateTotal
+)
+
+func (s *Set[T]) pow(x T) T {
+	y := pow(x, convert[T](float64(s.Iteration+1)))
+	if isnan(y) || isinf(y) {
+		return 0
+	}
+	return y
+}
+
+func (s *Set[T]) Adam(B1, B2, Eta T) {
+	norm := T(0.0)
+	for _, p := range s.Weights {
+		for _, d := range p.D {
+			norm += d * d
+		}
+	}
+	norm = sqrt(norm)
+	b1, b2 := s.pow(B1), s.pow(B2)
+	scaling := T(1.0)
+	switch n := any(norm).(type) {
+	case float32:
+		if n > 1 {
+			scaling = 1 / norm
+		}
+	case float64:
+		if n > 1 {
+			scaling = 1 / norm
+		}
+	case complex64:
+		if cmplx.Abs(complex128(n)) > 1 {
+			scaling = 1 / norm
+		}
+	case complex128:
+		if cmplx.Abs(n) > 1 {
+			scaling = 1 / norm
+		}
+	}
+	for _, w := range s.Weights {
+		for ii, d := range w.D {
+			if w.Type == Data {
+				continue
+			}
+			g := d * scaling
+			m := B1*w.States[StateM][ii] + (1-B1)*g
+			v := B2*w.States[StateV][ii] + (1-B2)*g*g
+			w.States[StateM][ii] = m
+			w.States[StateV][ii] = v
+			mhat := m / (1 - b1)
+			vhat := v / (1 - b2)
+			switch v := any(vhat).(type) {
+			case float32:
+				if v < 0 {
+					vhat = 0
+				}
+			case float64:
+				if v < 0 {
+					vhat = 0
+				}
+			case complex64:
+				if cmplx.Abs(complex128(v)) < 0 {
+					vhat = 0
+				}
+			case complex128:
+				if cmplx.Abs(v) < 0 {
+					vhat = 0
+				}
+			}
+			w.X[ii] -= Eta * mhat / (sqrt(vhat) + 1e-8)
+		}
+	}
+	s.Iteration++
+
 }
 
 // Save saves a set of weights
