@@ -6,6 +6,7 @@ package main
 
 import (
 	"math"
+	"math/cmplx"
 )
 
 // NewV create a new tensor value
@@ -290,6 +291,26 @@ func (a *V[T]) T() *V[T] {
 	for p := 0; p < a.S[0]; p++ {
 		for q := 0; q < a.S[1]; q++ {
 			c.X = append(c.X, a.X[q*a.S[0]+p])
+		}
+	}
+	return c
+}
+
+// H the conjugate transpose of the matrix
+func (a *V[T]) H() *V[T] {
+	c := NewV[T](a.S[1], a.S[0])
+	for p := 0; p < a.S[0]; p++ {
+		for q := 0; q < a.S[1]; q++ {
+			switch ax := any(a.X[q*a.S[0]+p]).(type) {
+			case float32:
+				c.X = append(c.X, any(ax).(T))
+			case float64:
+				c.X = append(c.X, any(ax).(T))
+			case complex64:
+				c.X = append(c.X, any(complex64(cmplx.Conj(complex128(ax)))).(T))
+			case complex128:
+				c.X = append(c.X, any(cmplx.Conj(ax)).(T))
+			}
 		}
 	}
 	return c
@@ -629,6 +650,242 @@ func (a *V[T]) Quadratic(b *V[T]) *V[T] {
 			sum += p * p
 		}
 		c.X = append(c.X, sum*.5)
+	}
+	return c
+}
+
+// CrossEntropy computes the cross entropy cost of two tensors
+func (a *V[T]) CrossEntropy(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] || a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	c, size := NewV[T](a.S[1]), len(a.X)
+	for i := 0; i < size; i += width {
+		av, bv, sum := a.X[i:i+width], b.X[i:i+width], T(0.0)
+		for j, ax := range av {
+			bx := bv[j]
+			if bx == 1 {
+				sum += log(ax + .001)
+			} else {
+				sum += log(1 - ax + .001)
+			}
+		}
+		c.X = append(c.X, -sum)
+	}
+	return c
+}
+
+// Similarity computes the cosine similarity cost of two tensors
+func (a *V[T]) Similarity(b *V[T]) (*V[T], []T, []T, []T) {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] || a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	length := a.S[1]
+	c, size := NewV[T](length), len(a.X)
+	ab, aa, bb := make([]T, 0, length), make([]T, 0, length), make([]T, 0, length)
+	for i := 0; i < size; i += width {
+		av, bv := a.X[i:i+width], b.X[i:i+width]
+		sumAB, sumAA, sumBB := T(0.0), T(0.0), T(0.0)
+		for j, ax := range av {
+			bx := bv[j]
+			sumAB += ax * bx
+			sumAA += ax * ax
+			sumBB += bx * bx
+		}
+		c.X, ab, aa, bb =
+			append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
+	}
+	return c, ab, aa, bb
+}
+
+// Orthogonality computes the cosine similarity between all vectors
+func (a *V[T]) Orthogonality() (*V[T], []T, []T, []T) {
+	if len(a.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	length := ((a.S[1] - 1) * a.S[1]) / 2
+	c, size, width := NewV[T](length), len(a.X), a.S[0]
+	ab, aa, bb := make([]T, 0, length), make([]T, 0, length), make([]T, 0, length)
+	for i := 0; i < size; i += width {
+		for j := i + width; j < size; j += width {
+			sumAB, sumAA, sumBB := T(0.0), T(0.0), T(0.0)
+			for k := 0; k < width; k++ {
+				a, b := a.X[i+k], a.X[j+k]
+				sumAB += a * b
+				sumAA += a * a
+				sumBB += b * b
+			}
+			c.X, ab, aa, bb =
+				append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
+		}
+	}
+	return c, ab, aa, bb
+}
+
+// Entropy computes the entropy of the vectors
+func (a *V[T]) Entropy() *V[T] {
+	if len(a.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	c, size, width := NewV[T](a.S[1]), len(a.X), a.S[0]
+	for i := 0; i < size; i += width {
+		sum := T(0.0)
+		for k := 0; k < width; k++ {
+			ax := a.X[i+k]
+			sum += ax * log(ax)
+		}
+		c.X = append(c.X, -sum)
+	}
+	return c
+}
+
+// Variance computes the variance of the vectors
+func (a *V[T]) Variance() (*V[T], []T) {
+	if len(a.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	length := a.S[1]
+	c, size, width, means := NewV[T](length), len(a.X), a.S[0], make([]T, 0, length)
+
+	n := convert[T](float64(width))
+
+	for i := 0; i < size; i += width {
+		sum := T(0.0)
+		for k := 0; k < width; k++ {
+			sum += a.X[i+k]
+		}
+		mean := sum / n
+		sum = T(0.0)
+		for k := 0; k < width; k++ {
+			d := a.X[i+k] - mean
+			sum += d * d
+		}
+		c.X, means = append(c.X, sum/n), append(means, mean)
+	}
+	return c, means
+}
+
+// Abs computes the absolute value of the tensor
+func (a *V[T]) Abs() *V[T] {
+	c := NewV[T](a.S...)
+	for _, ax := range a.X {
+		c.X = append(c.X, abs(ax))
+	}
+	return c
+}
+
+// Quantize quantizes the values
+func (a *V[T]) Quant(context *Context[T]) *V[T] {
+	c := NewV[T](a.S...)
+	for _, ax := range a.X {
+		switch tax := any(ax).(type) {
+		case float32:
+			const (
+				QuantizeMask = (1 << 32) - 1
+				FractionBits = 23
+			)
+			if context.Quantize > FractionBits {
+				panic("too much quantization")
+			}
+			bits := math.Float32bits(tax)
+			bits &= QuantizeMask << context.Quantize
+			c.X = append(c.X, any(math.Float32frombits(bits)).(T))
+		case float64:
+			const (
+				QuantizeMask = (1 << 64) - 1
+				FractionBits = 52
+			)
+			if context.Quantize > FractionBits {
+				panic("too much quantization")
+			}
+			bits := math.Float64bits(tax)
+			bits &= QuantizeMask << context.Quantize
+			c.X = append(c.X, any(math.Float64frombits(bits)).(T))
+		case complex64:
+			rtax, itax := real(tax), imag(tax)
+			const (
+				QuantizeMask = (1 << 32) - 1
+				FractionBits = 23
+			)
+			if context.Quantize > FractionBits {
+				panic("too much quantization")
+			}
+			rbits := math.Float32bits(rtax)
+			rbits &= QuantizeMask << context.Quantize
+			ibits := math.Float32bits(itax)
+			ibits &= QuantizeMask << context.Quantize
+			c.X = append(c.X, any(complex(math.Float32frombits(rbits), math.Float32frombits(ibits))).(T))
+		case complex128:
+			rtax, itax := real(tax), imag(tax)
+			const (
+				QuantizeMask = (1 << 64) - 1
+				FractionBits = 52
+			)
+			if context.Quantize > FractionBits {
+				panic("too much quantization")
+			}
+			rbits := math.Float64bits(rtax)
+			rbits &= QuantizeMask << context.Quantize
+			ibits := math.Float64bits(itax)
+			ibits &= QuantizeMask << context.Quantize
+			c.X = append(c.X, any(complex(math.Float64frombits(rbits), math.Float64frombits(ibits))).(T))
+		}
+	}
+	return c
+}
+
+// Avg computes the average of the tensor
+func (a *V[T]) Avg() *V[T] {
+	c, sum := NewV[T](1), T(0.0)
+	total := convert[T](float64(len(a.X)))
+	for _, j := range a.X {
+		sum += j
+	}
+	c.X = append(c.X, sum/total)
+	return c
+}
+
+// Combines two complex tensors to a complex tensor
+func (a *V[T]) Complex(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width, length := a.S[0], len(b.X)
+	if width != b.S[0] || (a.S[1] != b.S[1] && b.S[1] != 1) {
+		panic("dimensions are not the same")
+	}
+	c := NewV[T](a.S...)
+	for i, aX := range a.X {
+		switch ax := any(aX).(type) {
+		case complex64:
+			r := cmplx.Abs(complex128(ax))
+			p := cmplx.Phase(complex128(any(b.X[i%length]).(complex64)))
+			c.X = append(c.X, any(complex64(cmplx.Rect(r, p))).(T))
+		case complex128:
+			c.X = append(c.X, any(cmplx.Rect(cmplx.Abs(ax), cmplx.Phase(any(b.X[i%length]).(complex128)))).(T))
+		}
+	}
+	return c
+}
+
+// Phase computes the phase of a complex tensor
+func (a *V[T]) Phase() *V[T] {
+	c := NewV[T](a.S...)
+	for _, ax := range a.X {
+		switch ax := any(ax).(type) {
+		case complex64:
+			c.X = append(c.X, convert[T](cmplx.Phase(complex128(ax))))
+		case complex128:
+			c.X = append(c.X, convert[T](cmplx.Phase(ax)))
+		}
 	}
 	return c
 }
