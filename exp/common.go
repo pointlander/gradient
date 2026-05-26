@@ -220,7 +220,7 @@ func (s *Set[T]) InitAdam(rng *rand.Rand) {
 			}
 			continue
 		}
-		factor := sqrt(2.0 / convert[T](float64(w.S[0])))
+		factor := Sqrt(2.0 / Convert[T](float64(w.S[0])))
 		for range cap(w.X) {
 			switch any(factor).(type) {
 			case float32:
@@ -266,8 +266,8 @@ const (
 )
 
 func (s *Set[T]) pow(x T) T {
-	y := pow(x, convert[T](float64(s.Iteration+1)))
-	if isnan(y) || isinf(y) {
+	y := Pow(x, Convert[T](float64(s.Iteration+1)))
+	if IsNaN(y) || IsInf(y) {
 		return 0
 	}
 	return y
@@ -280,7 +280,7 @@ func (s *Set[T]) Adam(B1, B2, Eta T) {
 			norm += d * d
 		}
 	}
-	norm = sqrt(norm)
+	norm = Sqrt(norm)
 	b1, b2 := s.pow(B1), s.pow(B2)
 	scaling := T(1.0)
 	switch n := any(norm).(type) {
@@ -331,7 +331,7 @@ func (s *Set[T]) Adam(B1, B2, Eta T) {
 					vhat = 0
 				}
 			}
-			w.X[ii] -= Eta * mhat / (sqrt(vhat) + 1e-8)
+			w.X[ii] -= Eta * mhat / (Sqrt(vhat) + 1e-8)
 		}
 	}
 	s.Iteration++

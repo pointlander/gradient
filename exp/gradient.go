@@ -126,7 +126,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 				for i := 0; i < sizeB; i += width {
 					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
 
-					axpy(cd, bv, ad)
+					Axpy(cd, bv, ad)
 
 					bi++
 				}
@@ -163,7 +163,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 				}
 				av, cd := a.X[j:j+width], c.D[index]
 
-				axpy(cd, av, bd)
+				Axpy(cd, av, bd)
 
 				index++
 			}
@@ -193,7 +193,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 			for i := 0; i < sizeB; i += width {
 				bv, cd := b.X[i:i+width], c.D[index+bi*rows]
 
-				axpy(cd, bv, ad)
+				Axpy(cd, bv, ad)
 
 				bi++
 			}
@@ -217,7 +217,7 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 		for j := 0; j < sizeA; j += width {
 			av, cd := a.X[j:j+width], c.D[index]
 
-			axpy(cd, av, bd)
+			Axpy(cd, av, bd)
 
 			index++
 		}
@@ -272,7 +272,7 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 				for i := 0; i < sizeB; i += width {
 					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
 
-					axpy(cd, bv, ad)
+					Axpy(cd, bv, ad)
 
 					bi++
 				}
@@ -298,7 +298,7 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 				}
 				av, cd := a.X[j:j+width], c.D[index]
 
-				axpy(cd, av, bd)
+				Axpy(cd, av, bd)
 
 				index++
 			}
@@ -320,7 +320,7 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 			for i := 0; i < sizeB; i += width {
 				bv, cd := b.X[i:i+width], c.D[index+bi*rows]
 
-				axpy(cd, bv, ad)
+				Axpy(cd, bv, ad)
 
 				bi++
 			}
@@ -338,7 +338,7 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 		for j := 0; j < sizeA; j += width {
 			av, cd := a.X[j:j+width], c.D[index]
 
-			axpy(cd, av, bd)
+			Axpy(cd, av, bd)
 
 			index++
 		}
@@ -594,7 +594,7 @@ func (context *Context[T]) Sin(k Continuation[T], node int, a *V[T], options ...
 		return true
 	}
 	for i, j := range c.D {
-		a.D[i] += j * cos(a.X[i])
+		a.D[i] += j * Cos(a.X[i])
 	}
 	return false
 }
@@ -614,7 +614,7 @@ func (context *Context[T]) Cos(k Continuation[T], node int, a *V[T], options ...
 		return true
 	}
 	for i, j := range c.D {
-		a.D[i] -= j * sin(a.X[i])
+		a.D[i] -= j * Sin(a.X[i])
 	}
 	return false
 }
@@ -759,7 +759,7 @@ func (context *Context[T]) Softplus(k Continuation[T], node int, a *V[T], option
 		return true
 	}
 	for i, j := range c.D {
-		a.D[i] += j / (1 + exp(-a.X[i]))
+		a.D[i] += j / (1 + Exp(-a.X[i]))
 	}
 	return false
 }
@@ -984,10 +984,10 @@ func (context *Context[T]) CrossEntropy(k Continuation[T], node int, a, b *V[T],
 			bx := bv[j]
 			if bx == 1 {
 				ad[j] -= d / (ax + .001)
-				bd[j] -= log(ax+.001) * d
+				bd[j] -= Log(ax+.001) * d
 			} else {
 				ad[j] += d / (1 - ax + .001)
-				bd[j] -= log(1-ax+.001) * d
+				bd[j] -= Log(1-ax+.001) * d
 			}
 		}
 		index++
@@ -1007,7 +1007,7 @@ func (context *Context[T]) Similarity(k Continuation[T], node int, a, b *V[T], o
 	for i := 0; i < size; i += width {
 		av, bv, ad, bd, cd := a.X[i:i+width], b.X[i:i+width], a.D[i:i+width], b.D[i:i+width], c.D[index]
 		sumAB, sumAA, sumBB := ab[index], aa[index], bb[index]
-		denominator := sqrt(sumAA) * sqrt(sumBB)
+		denominator := Sqrt(sumAA) * Sqrt(sumBB)
 		for j, ax := range av {
 			bx := bv[j]
 			ad[j] += cd * (bx/denominator - ax*sumAB/(sumAA*denominator))
@@ -1029,7 +1029,7 @@ func (context *Context[T]) Orthogonality(k Continuation[T], node int, a *V[T], o
 	for i := 0; i < size; i += width {
 		for j := i + width; j < size; j += width {
 			cd, sumAB, sumAA, sumBB := c.D[index], ab[index], aa[index], bb[index]
-			denominator := sqrt(sumAA) * sqrt(sumBB)
+			denominator := Sqrt(sumAA) * Sqrt(sumBB)
 			for k := 0; k < width; k++ {
 				ax, bx := a.X[i+k], a.X[j+k]
 				a.D[i+k] += cd * (bx/denominator - ax*sumAB/(sumAA*denominator))
@@ -1060,7 +1060,7 @@ func (context *Context[T]) Entropy(k Continuation[T], node int, a *V[T], options
 		cd := c.D[index]
 		for k := 0; k < width; k++ {
 			ax := a.X[i+k]
-			a.D[i+k] -= cd * (log(ax) + 1)
+			a.D[i+k] -= cd * (Log(ax) + 1)
 		}
 		index++
 	}
@@ -1071,7 +1071,7 @@ func (context *Context[T]) Entropy(k Continuation[T], node int, a *V[T], options
 func (context *Context[T]) Variance(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
 	size, width := len(a.X), a.S[0]
 	c, means := a.Variance()
-	n := convert[T](float64(width))
+	n := Convert[T](float64(width))
 	if k(c) {
 		return true
 	}
@@ -1111,7 +1111,7 @@ func (context *Context[T]) Abs(k Continuation[T], node int, a *V[T], options ...
 		return true
 	}
 	for i, cd := range c.D {
-		sign := convert[T](float64(sign(a.X[i])))
+		sign := Convert[T](float64(Sign(a.X[i])))
 		a.D[i] += cd * sign
 	}
 	return false
@@ -1140,7 +1140,7 @@ func (context *Context[T]) Quant(k Continuation[T], node int, a *V[T], options .
 // Avg computes the average of the tensor
 func (context *Context[T]) Avg(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
 	c := NewV[T](1)
-	total := convert[T](float64(len(a.X)))
+	total := Convert[T](float64(len(a.X)))
 	cached := context.Get(node)
 	if cached != nil {
 		c.X = cached
@@ -1178,14 +1178,14 @@ func (context *Context[T]) Complex(k Continuation[T], node int, a, b *V[T], opti
 		switch any(cD).(type) {
 		case complex64:
 			aX, bX := cmplx.Abs(complex128(any(a.X[i]).(complex64))), cmplx.Phase(complex128(any(b.X[i%length]).(complex64)))
-			cos, sin := cos(bX), sin(bX)
-			a.D[i] += cD * convert[T](cos+sin)
-			b.D[i%length] += cD * convert[T](aX*(cos-sin))
+			cos, sin := Cos(bX), Sin(bX)
+			a.D[i] += cD * Convert[T](cos+sin)
+			b.D[i%length] += cD * Convert[T](aX*(cos-sin))
 		case complex128:
 			aX, bX := cmplx.Abs(any(a.X[i]).(complex128)), cmplx.Phase(any(b.X[i%length]).(complex128))
-			cos, sin := cos(bX), sin(bX)
-			a.D[i] += cD * convert[T](cos+sin)
-			b.D[i%length] += cD * convert[T](aX*(cos-sin))
+			cos, sin := Cos(bX), Sin(bX)
+			a.D[i] += cD * Convert[T](cos+sin)
+			b.D[i%length] += cD * Convert[T](aX*(cos-sin))
 		}
 	}
 	return false

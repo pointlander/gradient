@@ -169,7 +169,7 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 				}
 
 				av := a.X[j : j+width]
-				sum := dot(av, bv)
+				sum := Dot(av, bv)
 
 				c.X[i] = sum
 				i++
@@ -234,7 +234,7 @@ func (a *V[T]) Square() *V[T] {
 				}
 
 				av := a.X[j : j+width]
-				sum := dot(av, bv)
+				sum := Dot(av, bv)
 
 				c.X[i] = sum
 				i++
@@ -361,7 +361,7 @@ func (a *V[T]) Concat(b *V[T]) *V[T] {
 // Dropout is a dropout regularization function
 func (a *V[T]) Dropout(drop float64, drops []int) *V[T] {
 	size, width := len(a.X), a.S[0]
-	c, factor := NewV[T](a.S...), convert[T](1.0/(1.0-drop))
+	c, factor := NewV[T](a.S...), Convert[T](1.0/(1.0-drop))
 	c.X = c.X[:cap(c.X)]
 	for i := 0; i < size; i += width {
 		for j, ax := range a.X[i : i+width] {
@@ -377,7 +377,7 @@ func (a *V[T]) Dropout(drop float64, drops []int) *V[T] {
 func (a *V[T]) Sin() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		c.X = append(c.X, sin(j))
+		c.X = append(c.X, Sin(j))
 	}
 	return c
 }
@@ -386,7 +386,7 @@ func (a *V[T]) Sin() *V[T] {
 func (a *V[T]) Cos() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		c.X = append(c.X, cos(j))
+		c.X = append(c.X, Cos(j))
 	}
 	return c
 }
@@ -395,7 +395,7 @@ func (a *V[T]) Cos() *V[T] {
 func (a *V[T]) Exp() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		c.X = append(c.X, exp(j))
+		c.X = append(c.X, Exp(j))
 	}
 	return c
 }
@@ -404,7 +404,7 @@ func (a *V[T]) Exp() *V[T] {
 func (a *V[T]) Log() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		c.X = append(c.X, log(j))
+		c.X = append(c.X, Log(j))
 	}
 	return c
 }
@@ -413,7 +413,7 @@ func (a *V[T]) Log() *V[T] {
 func (a *V[T]) Sqrt() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		c.X = append(c.X, sqrt(j))
+		c.X = append(c.X, Sqrt(j))
 	}
 	return c
 }
@@ -435,9 +435,9 @@ func (a *V[T]) Inv() *V[T] {
 func (a *V[T]) Sigmoid() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		e := exp(j)
-		if isinf(e) {
-			if sign(e) == 1 {
+		e := Exp(j)
+		if IsInf(e) {
+			if Sign(e) == 1 {
 				c.X = append(c.X, 1.0)
 			} else {
 				c.X = append(c.X, 0)
@@ -453,7 +453,7 @@ func (a *V[T]) Sigmoid() *V[T] {
 func (a *V[T]) TanH() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		e1, e2 := exp(j), exp(-j)
+		e1, e2 := Exp(j), Exp(-j)
 		c.X = append(c.X, (e1-e2)/(e1+e2))
 	}
 	return c
@@ -463,7 +463,7 @@ func (a *V[T]) TanH() *V[T] {
 func (a *V[T]) Softplus() *V[T] {
 	c := NewV[T](a.S...)
 	for _, j := range a.X {
-		c.X = append(c.X, log(1+exp(j)))
+		c.X = append(c.X, Log(1+Exp(j)))
 	}
 	return c
 }
@@ -486,21 +486,21 @@ func (a *V[T]) Everett() *V[T] {
 				switch tax := any(ax).(type) {
 				case float32:
 					min, max := max(tax, 0), min(tax, 0)
-					factor := convert[float32](1 / (1 - a.Drop))
+					factor := Convert[float32](1 / (1 - a.Drop))
 					c.X = append(c.X, any(min*factor).(T), any(max*factor).(T))
 				case float64:
 					min, max := max(tax, 0), min(tax, 0)
-					factor := convert[float64](1 / (1 - a.Drop))
+					factor := Convert[float64](1 / (1 - a.Drop))
 					c.X = append(c.X, any(min*factor).(T), any(max*factor).(T))
 				case complex64:
 					rmin, rmax := max(real(tax), 0), min(real(tax), 0)
 					imin, imax := max(real(tax), 0), min(real(tax), 0)
-					factor := convert[complex64](1 / (1 - a.Drop))
+					factor := Convert[complex64](1 / (1 - a.Drop))
 					c.X = append(c.X, any(complex(rmin, imin)*factor).(T), any(complex(rmax, imax)*factor).(T))
 				case complex128:
 					rmin, rmax := max(real(tax), 0), min(real(tax), 0)
 					imin, imax := max(real(tax), 0), min(real(tax), 0)
-					factor := convert[complex128](1 / (1 - a.Drop))
+					factor := Convert[complex128](1 / (1 - a.Drop))
 					c.X = append(c.X, any(complex(rmin, imin)*factor).(T), any(complex(rmax, imax)*factor).(T))
 				}
 				index++
@@ -580,26 +580,26 @@ func (a *V[T]) ReLu() *V[T] {
 // Softmax is the softmax function for big numbers
 func (a *V[T]) Softmax(S float64) *V[T] {
 	c, size, width := NewV[T](a.S...), len(a.X), a.S[0]
-	s := convert[T](S)
+	s := Convert[T](S)
 	switch any(s).(type) {
 	case float32:
 		var vv float32
 		for _, v := range a.X {
 			vv = max(vv, any(v).(float32))
 		}
-		s *= convert[T](float64(vv))
+		s *= Convert[T](float64(vv))
 	case float64:
 		var vv float64
 		for _, v := range a.X {
 			vv = max(vv, any(v).(float64))
 		}
-		s *= convert[T](float64(vv))
+		s *= Convert[T](float64(vv))
 	}
 	values := make([]T, width)
 	for i := 0; i < size; i += width {
 		sum := T(0.0)
 		for j, ax := range a.X[i : i+width] {
-			values[j] = exp(ax - s)
+			values[j] = Exp(ax - s)
 			sum += values[j]
 		}
 		for _, cx := range values {
@@ -669,9 +669,9 @@ func (a *V[T]) CrossEntropy(b *V[T]) *V[T] {
 		for j, ax := range av {
 			bx := bv[j]
 			if bx == 1 {
-				sum += log(ax + .001)
+				sum += Log(ax + .001)
 			} else {
-				sum += log(1 - ax + .001)
+				sum += Log(1 - ax + .001)
 			}
 		}
 		c.X = append(c.X, -sum)
@@ -701,7 +701,7 @@ func (a *V[T]) Similarity(b *V[T]) (*V[T], []T, []T, []T) {
 			sumBB += bx * bx
 		}
 		c.X, ab, aa, bb =
-			append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
+			append(c.X, sumAB/(Sqrt(sumAA)*Sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
 	}
 	return c, ab, aa, bb
 }
@@ -724,7 +724,7 @@ func (a *V[T]) Orthogonality() (*V[T], []T, []T, []T) {
 				sumBB += b * b
 			}
 			c.X, ab, aa, bb =
-				append(c.X, sumAB/(sqrt(sumAA)*sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
+				append(c.X, sumAB/(Sqrt(sumAA)*Sqrt(sumBB))), append(ab, sumAB), append(aa, sumAA), append(bb, sumBB)
 		}
 	}
 	return c, ab, aa, bb
@@ -740,7 +740,7 @@ func (a *V[T]) Entropy() *V[T] {
 		sum := T(0.0)
 		for k := 0; k < width; k++ {
 			ax := a.X[i+k]
-			sum += ax * log(ax)
+			sum += ax * Log(ax)
 		}
 		c.X = append(c.X, -sum)
 	}
@@ -755,7 +755,7 @@ func (a *V[T]) Variance() (*V[T], []T) {
 	length := a.S[1]
 	c, size, width, means := NewV[T](length), len(a.X), a.S[0], make([]T, 0, length)
 
-	n := convert[T](float64(width))
+	n := Convert[T](float64(width))
 
 	for i := 0; i < size; i += width {
 		sum := T(0.0)
@@ -777,7 +777,7 @@ func (a *V[T]) Variance() (*V[T], []T) {
 func (a *V[T]) Abs() *V[T] {
 	c := NewV[T](a.S...)
 	for _, ax := range a.X {
-		c.X = append(c.X, abs(ax))
+		c.X = append(c.X, Abs(ax))
 	}
 	return c
 }
@@ -845,7 +845,7 @@ func (a *V[T]) Quant(context *Context[T]) *V[T] {
 // Avg computes the average of the tensor
 func (a *V[T]) Avg() *V[T] {
 	c, sum := NewV[T](1), T(0.0)
-	total := convert[T](float64(len(a.X)))
+	total := Convert[T](float64(len(a.X)))
 	for _, j := range a.X {
 		sum += j
 	}
@@ -882,9 +882,9 @@ func (a *V[T]) Phase() *V[T] {
 	for _, ax := range a.X {
 		switch ax := any(ax).(type) {
 		case complex64:
-			c.X = append(c.X, convert[T](cmplx.Phase(complex128(ax))))
+			c.X = append(c.X, Convert[T](cmplx.Phase(complex128(ax))))
 		case complex128:
-			c.X = append(c.X, convert[T](cmplx.Phase(ax)))
+			c.X = append(c.X, Convert[T](cmplx.Phase(ax)))
 		}
 	}
 	return c
