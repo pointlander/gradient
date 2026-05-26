@@ -698,6 +698,9 @@ func (context *Context[T]) Inv(k Continuation[T], node int, a *V[T], options ...
 		return true
 	}
 	for i, j := range c.D {
+		if a.X[i] == 0 {
+			continue
+		}
 		a.D[i] += -j / (a.X[i] * a.X[i])
 	}
 	return false
