@@ -361,7 +361,7 @@ func (a *V[T]) Concat(b *V[T]) *V[T] {
 // Dropout is a dropout regularization function
 func (a *V[T]) Dropout(drop float64, drops []int) *V[T] {
 	size, width := len(a.X), a.S[0]
-	c, drops, factor := NewV[T](a.S...), make([]int, width), convert[T](1.0/(1.0-drop))
+	c, factor := NewV[T](a.S...), convert[T](1.0/(1.0-drop))
 	c.X = c.X[:cap(c.X)]
 	for i := 0; i < size; i += width {
 		for j, ax := range a.X[i : i+width] {
