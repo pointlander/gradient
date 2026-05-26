@@ -252,18 +252,14 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 		if cached == nil {
 			c = a.Square()
 		}
-		context.Set(node, c.X)
-		if k(c) {
-			return true
-		}
 	} else {
 		if cached == nil {
 			c = a.Square()
 		}
-		context.Set(node, c.X)
-		if k(c) {
-			return true
-		}
+	}
+	context.Set(node, c.X)
+	if k(c) {
+		return true
 	}
 
 	if a.Seed != 0 {
