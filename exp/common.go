@@ -302,10 +302,10 @@ func (s *Set[T]) Adam(B1, B2, Eta T) {
 		}
 	}
 	for _, w := range s.Weights {
+		if w.Type == Data {
+			continue
+		}
 		for ii, d := range w.D {
-			if w.Type == Data {
-				continue
-			}
 			g := d * scaling
 			m := B1*w.States[StateM][ii] + (1-B1)*g
 			v := B2*w.States[StateV][ii] + (1-B2)*g*g
