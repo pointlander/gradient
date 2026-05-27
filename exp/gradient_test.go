@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	//"github.com/pointlander/gradient/tf64"
 )
 
 func TestMul(t *testing.T) {
@@ -31,6 +32,40 @@ func TestMul(t *testing.T) {
 		}
 		return true
 	}, 1, a, e)
+}
+
+func TestSquare(t *testing.T) {
+	a := NewV[float64](2, 2)
+	a.Set([]float64{1, 2, 3, 4})
+	var context Context[float64]
+	context.Clear()
+	context.Square(func(a *V[float64]) bool {
+		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
+			t.Fatal("mul failed", a.X)
+		}
+		return false
+	}, 0, a)
+
+	b := NewV[float64](2, 2)
+	b.Set([]float64{1, 2, 3, 4})
+	Square := context.U(context.Square)
+	Quadratic := context.B(context.Quadratic)
+	Avg := context.U(context.Avg)
+	loss := Avg(Quadratic(Square(a.Meta()), b.Meta()))
+	Gradient(loss)
+	t.Log(a.D)
+	t.Log(b.D)
+
+	/*{
+		a := tf64.NewV(2, 2)
+		a.Set([]float64{1, 2, 3, 4})
+		b := tf64.NewV(2, 2)
+		b.Set([]float64{1, 2, 3, 4})
+		loss := tf64.Avg(tf64.Quadratic(tf64.Square(a.Meta()), b.Meta()))
+		tf64.Gradient(loss)
+		t.Log(a.D)
+		t.Log(b.D)
+	}*/
 }
 
 func TestXORNetwork(t *testing.T) {
@@ -202,7 +237,7 @@ func TestXORNetworkFull(t *testing.T) {
 	for range 33 {
 		set.Zero()
 		l := Gradient(loss)
-		set.Adam(B1, B2, .7)
+		set.Adam(B1, B2, .1)
 		t.Log(l)
 	}
 

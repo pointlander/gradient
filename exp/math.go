@@ -19,7 +19,7 @@ func Dot[T Number](a, b []T) T {
 
 func Axpy[T Number](alpha T, X []T, Y []T) {
 	for i, y := range Y {
-		Y[i] = alpha * (X[i] + y)
+		Y[i] = alpha*X[i] + y
 	}
 }
 
