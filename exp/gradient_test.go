@@ -8,7 +8,6 @@ import (
 	"math"
 	"math/rand"
 	"testing"
-	//"github.com/pointlander/gradient/tf64"
 )
 
 func TestMul(t *testing.T) {
@@ -32,6 +31,35 @@ func TestMul(t *testing.T) {
 		}
 		return true
 	}, 1, a, e)
+
+	{
+		a := NewV[float64](2, 2)
+		a.Set([]float64{1, 2, 3, 4})
+		a2 := NewV[float64](2, 2)
+		a2.Set([]float64{1, 2, 3, 4})
+		e := NewV[float64](2, 2)
+		e.Set([]float64{1, 2, 3, 4})
+		Mul := context.B(context.Mul)
+		Quadratic := context.B(context.Quadratic)
+		Avg := context.U(context.Avg)
+		loss := Avg(Quadratic(Mul(a.Meta(), a2.Meta()), e.Meta()))
+		context.Clear()
+		if x := Gradient(loss).X[0]; x != 150.5 {
+			t.Fatal("mul failed", x)
+		}
+		if a.D[0] != 14 || a.D[1] != 20 || a.D[2] != 36 || a.D[3] != 51 {
+			t.Fatal("mul failed", a.D)
+		}
+		if a2.D[0] != 15.5 || a2.D[1] != 22 || a2.D[2] != 35.5 || a2.D[3] != 50 {
+			t.Fatal("mul failed", a2.D)
+		}
+		if e.D[0] != -2 || e.D[1] != -4.5 || e.D[2] != -4 || e.D[3] != -10.5 {
+			t.Fatal("mul failed", e.D)
+		}
+		t.Log(a.D)
+		t.Log(a2.D)
+		t.Log(e.D)
+	}
 }
 
 func TestSquare(t *testing.T) {
@@ -41,7 +69,7 @@ func TestSquare(t *testing.T) {
 	context.Clear()
 	context.Square(func(a *V[float64]) bool {
 		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
-			t.Fatal("mul failed", a.X)
+			t.Fatal("square failed", a.X)
 		}
 		return false
 	}, 0, a)
@@ -53,19 +81,12 @@ func TestSquare(t *testing.T) {
 	Avg := context.U(context.Avg)
 	loss := Avg(Quadratic(Square(a.Meta()), b.Meta()))
 	Gradient(loss)
-	t.Log(a.D)
-	t.Log(b.D)
-
-	/*{
-		a := tf64.NewV(2, 2)
-		a.Set([]float64{1, 2, 3, 4})
-		b := tf64.NewV(2, 2)
-		b.Set([]float64{1, 2, 3, 4})
-		loss := tf64.Avg(tf64.Quadratic(tf64.Square(a.Meta()), b.Meta()))
-		tf64.Gradient(loss)
-		t.Log(a.D)
-		t.Log(b.D)
-	}*/
+	if a.D[0] != 29.5 || a.D[1] != 42 || a.D[2] != 71.5 || a.D[3] != 101 {
+		t.Fatal("square failed", a.D)
+	}
+	if b.D[0] != -2 || b.D[1] != -4.5 || b.D[2] != -4 || b.D[3] != -10.5 {
+		t.Fatal("square failed", b.D)
+	}
 }
 
 func TestXORNetwork(t *testing.T) {
