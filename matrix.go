@@ -106,25 +106,8 @@ func (a *V[T]) Add(b *V[T]) *V[T] {
 	}
 
 	c := NewV[T](a.S...)
-	if a.Seed != 0 {
-		dropout, index := uint32((1-a.Drop)*math.MaxUint32), 0
-		c.Seed, c.Drop = a.Seed, a.Drop
-		for i := 0; i < a.S[1]; i++ {
-			rng := a.Seed
-			for j := 0; j < a.S[0]; j++ {
-				if rng.Next() > dropout {
-					c.X = append(c.X, 0)
-					index++
-					continue
-				}
-				c.X = append(c.X, a.X[index]+b.X[index%length])
-				index++
-			}
-		}
-	} else {
-		for i, j := range a.X {
-			c.X = append(c.X, j+b.X[i%length])
-		}
+	for i, j := range a.X {
+		c.X = append(c.X, j+b.X[i%length])
 	}
 	return c
 }
@@ -157,54 +140,25 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 	sizeA, sizeB, c, done :=
 		len(a.X), len(b.X), NewV[T](a.S[1], b.S[1]), make(chan bool, 8)
 	c.X = c.X[:cap(c.X)]
-	if a.Seed != 0 {
-		c.Seed, c.Drop = a.Seed, a.Drop
-		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-		mul := func(bv []T, i int) {
-			rng := a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
-					i++
-					continue
-				}
-
-				av := a.X[j : j+width]
-				sum := Dot(av, bv)
-
-				c.X[i] = sum
-				i++
+	mul := func(bv []T, i int) {
+		for j := 0; j < sizeA; j += width {
+			var sum T
+			av := a.X[j : j+width]
+			for k, bx := range bv {
+				sum += av[k] * bx
 			}
-			done <- true
+			c.X[i] = sum
+			i++
 		}
-		index, step := 0, sizeA/width
-		for i := 0; i < sizeB; i += width {
-			go mul(b.X[i:i+width], index)
-			index += step
-		}
-		for i := 0; i < sizeB; i += width {
-			<-done
-		}
-	} else {
-		mul := func(bv []T, i int) {
-			for j := 0; j < sizeA; j += width {
-				var sum T
-				av := a.X[j : j+width]
-				for k, bx := range bv {
-					sum += av[k] * bx
-				}
-				c.X[i] = sum
-				i++
-			}
-			done <- true
-		}
-		index, step := 0, sizeA/width
-		for i := 0; i < sizeB; i += width {
-			go mul(b.X[i:i+width], index)
-			index += step
-		}
-		for i := 0; i < sizeB; i += width {
-			<-done
-		}
+		done <- true
+	}
+	index, step := 0, sizeA/width
+	for i := 0; i < sizeB; i += width {
+		go mul(b.X[i:i+width], index)
+		index += step
+	}
+	for i := 0; i < sizeB; i += width {
+		<-done
 	}
 	return c
 }
@@ -219,52 +173,23 @@ func (a *V[T]) Square() *V[T] {
 	if width != b.S[0] {
 		panic("first dimension is not the same")
 	}
-	sizeA, sizeB, c, done :=
-		len(a.X), len(b.X), NewV[T](a.S[1], b.S[1]), make(chan bool, 8)
+	sizeA, sizeB, c :=
+		len(a.X), len(b.X), NewV[T](a.S[1], b.S[1])
 	c.X = c.X[:cap(c.X)]
-	if a.Seed != 0 {
-		c.Seed, c.Drop = a.Seed, a.Drop
-		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-		mul := func(bv []T, i int) {
-			rng := a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
-					i++
-					continue
-				}
-
-				av := a.X[j : j+width]
-				sum := Dot(av, bv)
-
-				c.X[i] = sum
-				i++
+	mul := func(bv []T, i int) {
+		for j := 0; j < sizeA; j += width {
+			av, sum := a.X[j:j+width], T(0.0)
+			for k, bx := range bv {
+				sum += av[k] * bx
 			}
-			done <- true
+			c.X[i] = sum
+			i++
 		}
-		index, step := 0, sizeA/width
-		for i := 0; i < sizeB; i += width {
-			mul(b.X[i:i+width], index)
-			index += step
-		}
-		for i := 0; i < sizeB; i += width {
-			<-done
-		}
-	} else {
-		mul := func(bv []T, i int) {
-			for j := 0; j < sizeA; j += width {
-				av, sum := a.X[j:j+width], T(0.0)
-				for k, bx := range bv {
-					sum += av[k] * bx
-				}
-				c.X[i] = sum
-				i++
-			}
-		}
-		index, step := 0, sizeA/width
-		for i := 0; i < sizeB; i += width {
-			mul(b.X[i:i+width], index)
-			index += step
-		}
+	}
+	index, step := 0, sizeA/width
+	for i := 0; i < sizeB; i += width {
+		mul(b.X[i:i+width], index)
+		index += step
 	}
 	return c
 }
@@ -471,59 +396,22 @@ func (a *V[T]) Softplus() *V[T] {
 // Everett computes the split reality activation function
 func (a *V[T]) Everett() *V[T] {
 	c := NewV[T](2*a.S[0], a.S[1])
-	if a.Seed != 0 {
-		c.Seed, c.Drop = a.Seed, a.Drop
-		index, dropout := 0, uint32((1-a.Drop)*math.MaxUint32)
-		for i := 0; i < a.S[1]; i++ {
-			rng := a.Seed
-			for j := 0; j < a.S[0]; j++ {
-				if rng.Next() > dropout {
-					c.X = append(c.X, 0, 0)
-					index++
-					continue
-				}
-				ax := a.X[index]
-				switch tax := any(ax).(type) {
-				case float32:
-					min, max := max(tax, 0), min(tax, 0)
-					factor := Convert[float32](1 / (1 - a.Drop))
-					c.X = append(c.X, any(min*factor).(T), any(max*factor).(T))
-				case float64:
-					min, max := max(tax, 0), min(tax, 0)
-					factor := Convert[float64](1 / (1 - a.Drop))
-					c.X = append(c.X, any(min*factor).(T), any(max*factor).(T))
-				case complex64:
-					rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-					imin, imax := max(real(tax), 0), min(real(tax), 0)
-					factor := Convert[complex64](1 / (1 - a.Drop))
-					c.X = append(c.X, any(complex(rmin, imin)*factor).(T), any(complex(rmax, imax)*factor).(T))
-				case complex128:
-					rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-					imin, imax := max(real(tax), 0), min(real(tax), 0)
-					factor := Convert[complex128](1 / (1 - a.Drop))
-					c.X = append(c.X, any(complex(rmin, imin)*factor).(T), any(complex(rmax, imax)*factor).(T))
-				}
-				index++
-			}
-		}
-	} else {
-		for _, j := range a.X {
-			switch tax := any(j).(type) {
-			case float32:
-				min, max := max(tax, 0), min(tax, 0)
-				c.X = append(c.X, any(max).(T), any(min).(T))
-			case float64:
-				min, max := max(tax, 0), min(tax, 0)
-				c.X = append(c.X, any(max).(T), any(min).(T))
-			case complex64:
-				rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-				imin, imax := max(imag(tax), 0), min(imag(tax), 0)
-				c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
-			case complex128:
-				rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-				imin, imax := max(imag(tax), 0), min(imag(tax), 0)
-				c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
-			}
+	for _, j := range a.X {
+		switch tax := any(j).(type) {
+		case float32:
+			min, max := max(tax, 0), min(tax, 0)
+			c.X = append(c.X, any(max).(T), any(min).(T))
+		case float64:
+			min, max := max(tax, 0), min(tax, 0)
+			c.X = append(c.X, any(max).(T), any(min).(T))
+		case complex64:
+			rmin, rmax := max(real(tax), 0), min(real(tax), 0)
+			imin, imax := max(imag(tax), 0), min(imag(tax), 0)
+			c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
+		case complex128:
+			rmin, rmax := max(real(tax), 0), min(real(tax), 0)
+			imin, imax := max(imag(tax), 0), min(imag(tax), 0)
+			c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
 		}
 	}
 	return c

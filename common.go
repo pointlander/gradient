@@ -34,7 +34,6 @@ type (
 	V[T Number] struct {
 		Type
 		N      string // the name
-		Seed   RNG
 		Drop   float64
 		X      []T   // the tensor
 		D      []T   // the derivative

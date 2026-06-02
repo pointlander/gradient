@@ -5,7 +5,6 @@
 package gradient
 
 import (
-	"math"
 	"math/cmplx"
 	"math/rand"
 )
@@ -39,26 +38,9 @@ func (context *Context[T]) Add(k Continuation[T], node int, a, b *V[T], options 
 		return true
 	}
 
-	if a.Seed != 0 {
-		dropout, index := uint32((1-a.Drop)*math.MaxUint32), 0
-		for i := 0; i < a.S[1]; i++ {
-			rng := a.Seed
-			for j := 0; j < a.S[0]; j++ {
-				if rng.Next() > dropout {
-					index++
-					continue
-				}
-				d := c.D[index]
-				a.D[index] += d
-				b.D[index%length] += d
-				index++
-			}
-		}
-	} else {
-		for i, j := range c.D {
-			a.D[i] += j
-			b.D[i%length] += j
-		}
+	for i, j := range c.D {
+		a.D[i] += j
+		b.D[i%length] += j
 	}
 	return false
 }
@@ -95,92 +77,12 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 	if cached != nil {
 		c.X = cached
 	}
-	if a.Seed != 0 {
-		if cached == nil {
-			c = a.Mul(b)
-		}
-		context.Set(node, c.X)
-		if k(c) {
-			return true
-		}
-	} else {
-		if cached == nil {
-			c = a.Mul(b)
-		}
-		context.Set(node, c.X)
-		if k(c) {
-			return true
-		}
+	if cached == nil {
+		c = a.Mul(b)
 	}
-
-	if a.Seed != 0 {
-		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-
-		done := make(chan bool, 8)
-
-		// a derivatives
-		go func() {
-			derivativeDone := make(chan bool, 8)
-			derivatives := func(index int, ad []T) {
-				rows, bi := a.S[1], 0
-				for i := 0; i < sizeB; i += width {
-					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
-
-					Axpy(cd, bv, ad)
-
-					bi++
-				}
-				derivativeDone <- true
-			}
-			index, rng := 0, a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
-					index++
-					continue
-				}
-				ad := a.D[j : j+width]
-				go derivatives(index, ad)
-				index++
-			}
-			rng = a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
-					continue
-				}
-				<-derivativeDone
-			}
-			done <- true
-		}()
-
-		// b derivatives
-		derivativeDone := make(chan bool, 8)
-		derivatives := func(index int, bd []T) {
-			rng := a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
-					index++
-					continue
-				}
-				av, cd := a.X[j:j+width], c.D[index]
-
-				Axpy(cd, av, bd)
-
-				index++
-			}
-			derivativeDone <- true
-		}
-		index, rows := 0, a.S[1]
-		for i := 0; i < sizeB; i += width {
-			bd := b.D[i : i+width]
-			go derivatives(index, bd)
-			index += rows
-		}
-		for i := 0; i < sizeB; i += width {
-			<-derivativeDone
-		}
-		<-done
-
-		return false
+	context.Set(node, c.X)
+	if k(c) {
+		return true
 	}
 
 	done := make(chan bool, 8)
@@ -248,69 +150,12 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 	if cached != nil {
 		c.X = cached
 	}
-	if a.Seed != 0 {
-		if cached == nil {
-			c = a.Square()
-		}
-	} else {
-		if cached == nil {
-			c = a.Square()
-		}
+	if cached == nil {
+		c = a.Square()
 	}
 	context.Set(node, c.X)
 	if k(c) {
 		return true
-	}
-
-	if a.Seed != 0 {
-		c.Seed, c.Drop = a.Seed, a.Drop
-		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-		// a derivatives
-		{
-			derivatives := func(index int, ad []T) {
-				rows, bi := a.S[1], 0
-				for i := 0; i < sizeB; i += width {
-					bv, cd := b.X[i:i+width], c.D[index+bi*rows]
-
-					Axpy(cd, bv, ad)
-
-					bi++
-				}
-			}
-			index, rng := 0, a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
-					index++
-					continue
-				}
-				ad := a.D[j : j+width]
-				derivatives(index, ad)
-				index++
-			}
-		}
-
-		derivatives := func(index int, bd []T) {
-			rng := a.Seed
-			for j := 0; j < sizeA; j += width {
-				if rng.Next() > dropout {
-					index++
-					continue
-				}
-				av, cd := a.X[j:j+width], c.D[index]
-
-				Axpy(cd, av, bd)
-
-				index++
-			}
-		}
-		index, rows := 0, a.S[1]
-		for i := 0; i < sizeB; i += width {
-			bd := b.D[i : i+width]
-			derivatives(index, bd)
-			index += rows
-		}
-
-		return false
 	}
 
 	// a derivatives
@@ -777,27 +622,6 @@ func (context *Context[T]) Everett(k Continuation[T], node int, a *V[T], options
 	context.Set(node, c.X)
 	if k(c) {
 		return true
-	}
-	if a.Seed != 0 {
-		dropout := uint32((1 - a.Drop) * math.MaxUint32)
-		index := 0
-		for i := 0; i < a.S[1]; i++ {
-			rng := a.Seed
-			for j := 0; j < a.S[0]; j++ {
-				if rng.Next() > dropout {
-					index += 2
-					continue
-				}
-				if c.X[index] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
-					a.D[index>>1] += c.D[index]
-				}
-				if c.X[index+1] != 0 || (c.X[index] == 0 && c.X[index+1] == 0) {
-					a.D[index>>1] += c.D[index+1]
-				}
-				index += 2
-			}
-		}
-		return false
 	}
 
 	for i, j := range c.D {
