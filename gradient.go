@@ -25,15 +25,7 @@ func (context *Context[T]) Copy(k Continuation[T], node int, dst, src *V[T], opt
 // Add adds two tensors
 func (context *Context[T]) Add(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	length := len(b.X)
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Add(b)
-	}
-	context.Set(node, c.X)
+	c := a.Add(b)
 	if k(c) {
 		return true
 	}
@@ -48,15 +40,7 @@ func (context *Context[T]) Add(k Continuation[T], node int, a, b *V[T], options 
 // Sub subtracts two tensors
 func (context *Context[T]) Sub(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	length := len(b.X)
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Sub(b)
-	}
-	context.Set(node, c.X)
+	c := a.Sub(b)
 	if k(c) {
 		return true
 	}
@@ -70,17 +54,8 @@ func (context *Context[T]) Sub(k Continuation[T], node int, a, b *V[T], options 
 // Mul multiplies two tensors
 func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	width := a.S[0]
-	sizeA, sizeB, c :=
-		len(a.X), len(b.X), NewV[T](a.S[1], b.S[1])
-	c.X = c.X[:cap(c.X)]
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Mul(b)
-	}
-	context.Set(node, c.X)
+	sizeA, sizeB := len(a.X), len(b.X)
+	c := a.Mul(b)
 	if k(c) {
 		return true
 	}
@@ -143,17 +118,8 @@ func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options 
 func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
 	b := a
 	width := a.S[0]
-	sizeA, sizeB, c :=
-		len(a.X), len(b.X), NewV[T](a.S[1], b.S[1])
-	c.X = c.X[:cap(c.X)]
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Square()
-	}
-	context.Set(node, c.X)
+	sizeA, sizeB := len(a.X), len(b.X)
+	c := a.Square()
 	if k(c) {
 		return true
 	}
@@ -201,15 +167,7 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 // Hadamard computes the hadamard product of two tensors
 func (context *Context[T]) Hadamard(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	length := len(b.X)
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Hadamard(b)
-	}
-	context.Set(node, c.X)
+	c := a.Hadamard(b)
 	if k(c) {
 		return true
 	}
@@ -222,15 +180,7 @@ func (context *Context[T]) Hadamard(k Continuation[T], node int, a, b *V[T], opt
 
 // T the transpose of the matrix
 func (context *Context[T]) T(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S[1], a.S[0])
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.T()
-	}
-	context.Set(node, c.X)
+	c := a.T()
 	if k(c) {
 		return true
 	}
@@ -246,15 +196,7 @@ func (context *Context[T]) T(k Continuation[T], node int, a *V[T], options ...ma
 
 // H the conjugate transpose of the matrix
 func (context *Context[T]) H(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S[1], a.S[0])
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.H()
-	}
-	context.Set(node, c.X)
+	c := a.H()
 	if k(c) {
 		return true
 	}
@@ -313,15 +255,7 @@ func (context *Context[T]) Slice(k Continuation[T], node int, a *V[T], options .
 		d = *dd
 	}
 	if d == 0 {
-		c := NewV[T](end-begin, 1)
-		cached := context.Get(node)
-		if cached != nil {
-			c.X = cached
-		}
-		if cached == nil {
-			c = a.Slice(begin, end, d)
-		}
-		context.Set(node, c.X)
+		c := a.Slice(begin, end, d)
 		if k(c) {
 			return true
 		}
@@ -332,15 +266,8 @@ func (context *Context[T]) Slice(k Continuation[T], node int, a *V[T], options .
 			index++
 		}
 	} else if d == 2 {
-		c, size := NewV[T](end-begin, a.S[1]), len(a.X)
-		cached := context.Get(node)
-		if cached != nil {
-			c.X = cached
-		}
-		if cached == nil {
-			c = a.Slice(begin, end, d)
-		}
-		context.Set(node, c.X)
+		size := len(a.X)
+		c := a.Slice(begin, end, d)
 		if k(c) {
 			return true
 		}
@@ -360,15 +287,8 @@ func (context *Context[T]) Slice(k Continuation[T], node int, a *V[T], options .
 // Concat concats two tensors
 func (context *Context[T]) Concat(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	widthA, widthB := a.S[0], b.S[0]
-	c, i, j := NewV[T](widthA+widthB, a.S[1]), 0, 0
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Concat(b)
-	}
-	context.Set(node, c.X)
+	i, j := 0, 0
+	c := a.Concat(b)
 	if k(c) {
 		return true
 	}
@@ -397,20 +317,13 @@ func (context *Context[T]) Dropout(k Continuation[T], node int, a *V[T], options
 	if options[0]["drop"] != nil {
 		drop = *options[0]["drop"].(*float64)
 	}
-	c, drops := NewV[T](a.S...), make([]int, width)
+	drops := make([]int, width)
 	for i := range drops {
 		if rng.Float64() > drop {
 			drops[i] = 1
 		}
 	}
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Dropout(drop, drops)
-	}
-	context.Set(node, c.X)
+	c := a.Dropout(drop, drops)
 	if k(c) {
 		return true
 	}
@@ -426,15 +339,7 @@ func (context *Context[T]) Dropout(k Continuation[T], node int, a *V[T], options
 
 // Sin the sine of a number
 func (context *Context[T]) Sin(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Sin()
-	}
-	context.Set(node, c.X)
+	c := a.Sin()
 	if k(c) {
 		return true
 	}
@@ -446,15 +351,7 @@ func (context *Context[T]) Sin(k Continuation[T], node int, a *V[T], options ...
 
 // Cos the cosine of a tensor
 func (context *Context[T]) Cos(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Cos()
-	}
-	context.Set(node, c.X)
+	c := a.Cos()
 	if k(c) {
 		return true
 	}
@@ -466,15 +363,7 @@ func (context *Context[T]) Cos(k Continuation[T], node int, a *V[T], options ...
 
 // Exp the base e exponential of a tensor
 func (context *Context[T]) Exp(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Exp()
-	}
-	context.Set(node, c.X)
+	c := a.Exp()
 	if k(c) {
 		return true
 	}
@@ -486,15 +375,7 @@ func (context *Context[T]) Exp(k Continuation[T], node int, a *V[T], options ...
 
 // Log the natural logarithm of a tensor
 func (context *Context[T]) Log(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Log()
-	}
-	context.Set(node, c.X)
+	c := a.Log()
 	if k(c) {
 		return true
 	}
@@ -506,15 +387,7 @@ func (context *Context[T]) Log(k Continuation[T], node int, a *V[T], options ...
 
 // Sqrt is the sqrt of a number
 func (context *Context[T]) Sqrt(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Sqrt()
-	}
-	context.Set(node, c.X)
+	c := a.Sqrt()
 	if k(c) {
 		return true
 	}
@@ -526,15 +399,7 @@ func (context *Context[T]) Sqrt(k Continuation[T], node int, a *V[T], options ..
 
 // Inv is the inverse of a number
 func (context *Context[T]) Inv(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Inv()
-	}
-	context.Set(node, c.X)
+	c := a.Inv()
 	if k(c) {
 		return true
 	}
@@ -549,15 +414,7 @@ func (context *Context[T]) Inv(k Continuation[T], node int, a *V[T], options ...
 
 // Sigmoid computes the sigmoid of a vector
 func (context *Context[T]) Sigmoid(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Sigmoid()
-	}
-	context.Set(node, c.X)
+	c := a.Sigmoid()
 	if k(c) {
 		return true
 	}
@@ -570,15 +427,7 @@ func (context *Context[T]) Sigmoid(k Continuation[T], node int, a *V[T], options
 
 // TanH the hyperbolic tangent of a tensor
 func (context *Context[T]) TanH(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.TanH()
-	}
-	context.Set(node, c.X)
+	c := a.TanH()
 	if k(c) {
 		return true
 	}
@@ -591,15 +440,7 @@ func (context *Context[T]) TanH(k Continuation[T], node int, a *V[T], options ..
 
 // Softplus the softplus activation function
 func (context *Context[T]) Softplus(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		a = a.Softplus()
-	}
-	context.Set(node, c.X)
+	c := a.Softplus()
 	if k(c) {
 		return true
 	}
@@ -611,15 +452,7 @@ func (context *Context[T]) Softplus(k Continuation[T], node int, a *V[T], option
 
 // Everett computes the split reality activation function
 func (context *Context[T]) Everett(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](2*a.S[0], a.S[1])
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Everett()
-	}
-	context.Set(node, c.X)
+	c := a.Everett()
 	if k(c) {
 		return true
 	}
@@ -634,15 +467,7 @@ func (context *Context[T]) Everett(k Continuation[T], node int, a *V[T], options
 
 // EverettReLu computes an adapter relu
 func (context *Context[T]) EverettReLu(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](2*a.S[0], a.S[1])
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.EverettReLu()
-	}
-	context.Set(node, c.X)
+	c := a.EverettReLu()
 	if k(c) {
 		return true
 	}
@@ -656,15 +481,7 @@ func (context *Context[T]) EverettReLu(k Continuation[T], node int, a *V[T], opt
 
 // ReLu computes the rectified linear activation function
 func (context *Context[T]) ReLu(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.ReLu()
-	}
-	context.Set(node, c.X)
+	c := a.ReLu()
 	if k(c) {
 		return true
 	}
@@ -683,22 +500,14 @@ const (
 
 // Softmax is the softmax function for big numbers
 func (context *Context[T]) Softmax(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		S := S
-		if len(options) > 0 {
-			s, ok := options[0]["S"]
-			if ok {
-				S = s.(float64)
-			}
+	S := S
+	if len(options) > 0 {
+		s, ok := options[0]["S"]
+		if ok {
+			S = s.(float64)
 		}
-		c = a.Softmax(S)
 	}
-	context.Set(node, c.X)
+	c := a.Softmax(S)
 	if k(c) {
 		return true
 	}
@@ -717,15 +526,7 @@ func (context *Context[T]) Softmax(k Continuation[T], node int, a *V[T], options
 
 // Sum sums a vector
 func (context *Context[T]) Sum(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](1)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Sum()
-	}
-	context.Set(node, c.X)
+	c := a.Sum()
 	if k(c) {
 		return true
 	}
@@ -739,15 +540,7 @@ func (context *Context[T]) Sum(k Continuation[T], node int, a *V[T], options ...
 // SumRows sums the rows of the matrix
 func (context *Context[T]) SumRows(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
 	size, width := len(a.X), a.S[0]
-	c := NewV[T](width)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = c.SumRows()
-	}
-	context.Set(node, c.X)
+	c := a.SumRows()
 	if k(c) {
 		return true
 	}
@@ -762,15 +555,8 @@ func (context *Context[T]) SumRows(k Continuation[T], node int, a *V[T], options
 // Quadratic computes the quadratic cost of two tensors
 func (context *Context[T]) Quadratic(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	width := a.S[0]
-	c, size := NewV[T](a.S[1]), len(a.X)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Quadratic(b)
-	}
-	context.Set(node, c.X)
+	size := len(a.X)
+	c := a.Quadratic(b)
 	if k(c) {
 		return true
 	}
@@ -789,15 +575,8 @@ func (context *Context[T]) Quadratic(k Continuation[T], node int, a, b *V[T], op
 // CrossEntropy computes the cross entropy cost of two tensors
 func (context *Context[T]) CrossEntropy(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	width := a.S[0]
-	c, size := NewV[T](a.S[1]), len(a.X)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.CrossEntropy(b)
-	}
-	context.Set(node, c.X)
+	size := len(a.X)
+	c := a.CrossEntropy(b)
 	if k(c) {
 		return true
 	}
@@ -867,15 +646,8 @@ func (context *Context[T]) Orthogonality(k Continuation[T], node int, a *V[T], o
 
 // Entropy computes the entropy of the vectors
 func (context *Context[T]) Entropy(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c, size, width := NewV[T](a.S[1]), len(a.X), a.S[0]
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Entropy()
-	}
-	context.Set(node, c.X)
+	size, width := len(a.X), a.S[0]
+	c := a.Entropy()
 	if k(c) {
 		return true
 	}
@@ -922,15 +694,7 @@ func (context *Context[T]) Variance(k Continuation[T], node int, a *V[T], option
 
 // Abs computes the absolute value of the tensor
 func (context *Context[T]) Abs(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Abs()
-	}
-	context.Set(node, c.X)
+	c := a.Abs()
 	if k(c) {
 		return true
 	}
@@ -943,15 +707,7 @@ func (context *Context[T]) Abs(k Continuation[T], node int, a *V[T], options ...
 
 // Quantize quantizes the values
 func (context *Context[T]) Quant(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Quant(context)
-	}
-	context.Set(node, c.X)
+	c := a.Quant(context)
 	if k(c) {
 		return true
 	}
@@ -963,16 +719,8 @@ func (context *Context[T]) Quant(k Continuation[T], node int, a *V[T], options .
 
 // Avg computes the average of the tensor
 func (context *Context[T]) Avg(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](1)
 	total := Convert[T](float64(len(a.X)))
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Avg()
-	}
-	context.Set(node, c.X)
+	c := a.Avg()
 	if k(c) {
 		return true
 	}
@@ -986,15 +734,7 @@ func (context *Context[T]) Avg(k Continuation[T], node int, a *V[T], options ...
 // Combines two complex tensors to a complex tensor
 func (context *Context[T]) Complex(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	length := len(b.X)
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Complex(b)
-	}
-	context.Set(node, c.X)
+	c := a.Complex(b)
 	if k(c) {
 		return true
 	}
@@ -1017,15 +757,7 @@ func (context *Context[T]) Complex(k Continuation[T], node int, a, b *V[T], opti
 
 // Phase computes the phase of a complex tensor
 func (context *Context[T]) Phase(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
-	c := NewV[T](a.S...)
-	cached := context.Get(node)
-	if cached != nil {
-		c.X = cached
-	}
-	if cached == nil {
-		c = a.Phase()
-	}
-	context.Set(node, c.X)
+	c := a.Phase()
 	if k(c) {
 		return true
 	}

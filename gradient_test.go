@@ -16,7 +16,6 @@ func TestMul(t *testing.T) {
 	b := NewV[float64](2)
 	b.Set([]float64{1, 2})
 	var context Context[float64]
-	context.Clear()
 	context.Mul(func(a *V[float64]) bool {
 		if a.X[0] != 5 || a.X[1] != 11 {
 			t.Fatal("mul failed", a.X)
@@ -43,7 +42,6 @@ func TestMul(t *testing.T) {
 		Quadratic := context.B(context.Quadratic)
 		Avg := context.U(context.Avg)
 		loss := Avg(Quadratic(Mul(a.Meta(), a2.Meta()), e.Meta()))
-		context.Clear()
 		if x := Gradient(loss).X[0]; x != 150.5 {
 			t.Fatal("mul failed", x)
 		}
@@ -66,7 +64,6 @@ func TestSquare(t *testing.T) {
 	a := NewV[float64](2, 2)
 	a.Set([]float64{1, 2, 3, 4})
 	var context Context[float64]
-	context.Clear()
 	context.Square(func(a *V[float64]) bool {
 		if a.X[0] != 5 || a.X[1] != 11 || a.X[2] != 11 || a.X[3] != 25 {
 			t.Fatal("square failed", a.X)
@@ -172,7 +169,6 @@ func TestXORNetwork(t *testing.T) {
 			}
 			input.Set(data[j][:2])
 			output.Set(data[j][2:])
-			context.Clear()
 			total += Gradient(cost).X[0]
 			for k, p := range parameters {
 				for l, d := range p.D {
@@ -205,7 +201,6 @@ func TestXORNetwork(t *testing.T) {
 	for i := range data {
 		input.X[0], input.X[1] = data[i][0], data[i][1]
 		var output V[float64]
-		context.Clear()
 		l2(func(a *V[float64]) bool {
 			output = *a
 			return true

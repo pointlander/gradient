@@ -34,10 +34,9 @@ type (
 	V[T Number] struct {
 		Type
 		N      string // the name
-		Drop   float64
-		X      []T   // the tensor
-		D      []T   // the derivative
-		S      []int // the shape
+		X      []T    // the tensor
+		D      []T    // the derivative
+		S      []int  // the shape
 		States [][]T
 	}
 	// Set is a set of V
@@ -62,7 +61,6 @@ type (
 	Context[T Number] struct {
 		Quantize uint
 		Node     int
-		Cache    map[int][]T
 	}
 )
 
@@ -72,26 +70,6 @@ func (r *RNG) Next() uint32 {
 	lfsr = (lfsr >> 1) ^ (-(lfsr & 1) & LFSRMask)
 	*r = lfsr
 	return uint32(lfsr)
-}
-
-// Clear clears the cache
-func (c *Context[T]) Clear() {
-	c.Cache = make(map[int][]T)
-}
-
-// Get gets a value from the cache
-func (c *Context[T]) Get(node int) []T {
-	if c.Cache != nil {
-		return c.Cache[node]
-	}
-	return nil
-}
-
-// Set sets a value in the cache
-func (c *Context[T]) Set(node int, value []T) {
-	if c.Cache != nil {
-		c.Cache[node] = value
-	}
 }
 
 // Op is a operation
