@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package exp
+package gradient
 
 import (
 	"math"
@@ -187,8 +187,8 @@ func Sign[T Number](x T) int {
 	}
 }
 
-func Convert[T Number](x float64) T {
-	switch any(x).(type) {
+func Convert[T Number](x float64) (t T) {
+	switch any(t).(type) {
 	case float32:
 		return any(float32(x)).(T)
 	case float64:

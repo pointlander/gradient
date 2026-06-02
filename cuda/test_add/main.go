@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pointlander/gradient"
 	"github.com/pointlander/gradient/cuda"
-	"github.com/pointlander/gradient/tf32"
 )
 
 const code = `int main() {
@@ -55,7 +55,8 @@ func main() {
 	loss := Add(set.Get("data"), set.Get("data2"))
 	context.Gradient(set, loss)
 
-	set32 := tf32.NewSet()
+	ctxt := gradient.Context[float32]{}
+	set32 := ctxt.NewSet()
 	set32.Add("data", 2, 2)
 	set32.Add("data2", 2)
 	data := set32.ByName["data"]
@@ -66,8 +67,9 @@ func main() {
 	for i := 0; i < data2.S[0]*data2.S[1]; i++ {
 		data2.X = append(data2.X, float32(i+1))
 	}
-	loss32 := tf32.Add(set32.Get("data"), set32.Get("data2"))
-	loss32(func(a *tf32.V) bool {
+	Add32 := ctxt.B(ctxt.Add)
+	loss32 := Add32(set32.Get("data"), set32.Get("data2"))
+	loss32(func(a *gradient.V[float32]) bool {
 		fmt.Fprintf(context.Output, "float x[] = {")
 		for _, v := range a.X[:len(a.X)-1] {
 			fmt.Fprintf(context.Output, "%f,", v)

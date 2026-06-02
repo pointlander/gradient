@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package exp
+package gradient
 
 import (
 	"math"
@@ -511,18 +511,18 @@ func (a *V[T]) Everett() *V[T] {
 			switch tax := any(j).(type) {
 			case float32:
 				min, max := max(tax, 0), min(tax, 0)
-				c.X = append(c.X, any(min).(T), any(max).(T))
+				c.X = append(c.X, any(max).(T), any(min).(T))
 			case float64:
 				min, max := max(tax, 0), min(tax, 0)
-				c.X = append(c.X, any(min).(T), any(max).(T))
+				c.X = append(c.X, any(max).(T), any(min).(T))
 			case complex64:
 				rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-				imin, imax := max(real(tax), 0), min(real(tax), 0)
-				c.X = append(c.X, any(complex(rmin, imin)).(T), any(complex(rmax, imax)).(T))
+				imin, imax := max(imag(tax), 0), min(imag(tax), 0)
+				c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
 			case complex128:
 				rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-				imin, imax := max(real(tax), 0), min(real(tax), 0)
-				c.X = append(c.X, any(complex(rmin, imin)).(T), any(complex(rmax, imax)).(T))
+				imin, imax := max(imag(tax), 0), min(imag(tax), 0)
+				c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
 			}
 		}
 	}
