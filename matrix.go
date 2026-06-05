@@ -7,6 +7,7 @@ package gradient
 import (
 	"math"
 	"math/cmplx"
+	"math/rand"
 )
 
 // NewV create a new tensor value
@@ -776,4 +777,231 @@ func (a *V[T]) Phase() *V[T] {
 		}
 	}
 	return c
+}
+
+// ClusterKMeansPlusPlus clusters some points
+func (a *V[T]) ClusterKMeansPlusPlus(seed int64, k int, maxIterations int) []int {
+	type Point []T
+
+	squaredDistance := func(p1, p2 Point) T {
+		var sum T
+		for i := range p1 {
+			diff := p1[i] - p2[i]
+			sum += diff * diff
+		}
+		return sum
+	}
+
+	rng := rand.New(rand.NewSource(seed))
+	data := []Point{}
+	for i := range a.S[1] {
+		data = append(data, a.X[i*a.S[0]:i*a.S[0]+a.S[0]])
+	}
+
+	if len(data) == 0 || k <= 0 {
+		return nil
+	}
+
+	centroids := make([]Point, 0, k)
+	firstIdx := rng.Intn(len(data))
+	centroids = append(centroids, data[firstIdx])
+	minDistSq := make([]T, len(data))
+
+	for len(centroids) < k {
+		var totalSum T
+
+		for i, p := range data {
+			distSq := squaredDistance(p, centroids[len(centroids)-1])
+			if len(centroids) == 1 {
+				minDistSq[i] = distSq
+			}
+			switch d := any(distSq).(type) {
+			case float32:
+				if d < any(minDistSq[i]).(float32) {
+					minDistSq[i] = distSq
+				}
+			case float64:
+				if d < any(minDistSq[i]).(float64) {
+					minDistSq[i] = distSq
+				}
+			case complex64:
+				if cmplx.Abs(complex128(d)) < cmplx.Abs(complex128(any(minDistSq[i]).(complex64))) {
+					minDistSq[i] = distSq
+				}
+			case complex128:
+				if cmplx.Abs(d) < cmplx.Abs(any(minDistSq[i]).(complex128)) {
+					minDistSq[i] = distSq
+				}
+			}
+			totalSum += minDistSq[i]
+		}
+
+		var target T
+		switch t := any(totalSum).(type) {
+		case float32:
+			target = any(rng.Float32() * t).(T)
+		case float64:
+			target = any(rng.Float64() * t).(T)
+		case complex64:
+			target = any(complex(rng.Float32(), rng.Float32()) * t).(T)
+		case complex128:
+			target = any(complex(rng.Float64(), rng.Float64()) * t).(T)
+		}
+		var currentSum T
+		var nextCentroidIdx int
+	search:
+		for i, distSq := range minDistSq {
+			currentSum += distSq
+			switch c := any(currentSum).(type) {
+			case float32:
+				if c >= any(target).(float32) {
+					nextCentroidIdx = i
+					break search
+				}
+			case float64:
+				if c >= any(target).(float64) {
+					nextCentroidIdx = i
+					break search
+				}
+			case complex64:
+				if cmplx.Abs(complex128(c)) >= cmplx.Abs(complex128(any(target).(complex64))) {
+					nextCentroidIdx = i
+					break search
+				}
+			}
+		}
+
+		centroids = append(centroids, data[nextCentroidIdx])
+	}
+
+	clusters := make([]Point, k)
+	members := make([]int, len(data))
+
+	for iter := 0; iter < maxIterations; iter++ {
+		for i := 0; i < k; i++ {
+			clusters[i] = centroids[i]
+		}
+
+		for index, p := range data {
+			bestIdx := 0
+			var minDist T
+			switch m := any(minDist).(type) {
+			case float32:
+				m = math.MaxFloat32
+				for i, c := range centroids {
+					dist := squaredDistance(p, c)
+					if d := any(dist).(float32); d < m {
+						m = d
+						bestIdx = i
+					}
+				}
+			case float64:
+				m = math.MaxFloat64
+				for i, c := range centroids {
+					dist := squaredDistance(p, c)
+					if d := any(dist).(float64); d < m {
+						m = d
+						bestIdx = i
+					}
+				}
+			case complex64:
+				minDist = math.MaxFloat32
+				for i, c := range centroids {
+					dist := squaredDistance(p, c)
+					if d := cmplx.Abs(complex128(any(dist).(complex64))); d < cmplx.Abs(complex128(m)) {
+						minDist = dist
+						bestIdx = i
+					}
+				}
+			case complex128:
+				minDist = math.MaxFloat32
+				for i, c := range centroids {
+					dist := squaredDistance(p, c)
+					if d := cmplx.Abs(any(dist).(complex128)); d < cmplx.Abs(m) {
+						minDist = dist
+						bestIdx = i
+					}
+				}
+
+			}
+			members[index] = bestIdx
+		}
+
+		changed := false
+		for i := 0; i < k; i++ {
+			newCentroid := make(Point, len(data[0]))
+			count := T(0.0)
+			for index, p := range data {
+				if members[index] == k {
+					for d := range p {
+						newCentroid[d] += p[d]
+					}
+					count++
+				}
+			}
+			for d := range newCentroid {
+				newCentroid[d] /= count
+			}
+
+			distance := squaredDistance(centroids[i], newCentroid)
+			switch distance := any(distance).(type) {
+			case float32:
+				if distance > 1e-6 {
+					changed = true
+				}
+			case float64:
+				if distance > 1e-6 {
+					changed = true
+				}
+			case complex64:
+				if cmplx.Abs(complex128(distance)) > 1e-6 {
+					changed = true
+				}
+			case complex128:
+				if cmplx.Abs(distance) > 1e-6 {
+					changed = true
+				}
+			}
+			centroids[i] = newCentroid
+		}
+
+		if !changed {
+			break
+		}
+	}
+
+	return members
+}
+
+// ClusterKMeansPlusPlusMeta clusters some points
+func (a *V[T]) ClusterKMeansPlusPlusMeta(seed int64, k int, maxIterations, samples int) []int {
+	length := a.S[1]
+	meta := make([][]T, length)
+	for i := range meta {
+		meta[i] = make([]T, length)
+	}
+	rng := rand.New(rand.NewSource(seed))
+	for i := 0; i < samples; i++ {
+		clusters := a.ClusterKMeansPlusPlus(rng.Int63(), k, maxIterations)
+		if clusters == nil {
+			panic("clustering failed")
+		}
+		for i := 0; i < len(meta); i++ {
+			target := clusters[i]
+			for j, v := range clusters {
+				if v == target {
+					meta[i][j]++
+				}
+			}
+		}
+	}
+	m := NewV[T](length, length)
+	for _, row := range meta {
+		m.X = append(m.X, row...)
+	}
+	clusters := m.ClusterKMeansPlusPlus(rng.Int63(), k, maxIterations)
+	if clusters == nil {
+		panic("clustering failed")
+	}
+	return clusters
 }
