@@ -868,6 +868,11 @@ func (a *V[T]) ClusterKMeansPlusPlus(seed int64, k int, maxIterations int) []int
 					nextCentroidIdx = i
 					break search
 				}
+			case complex128:
+				if cmplx.Abs(c) >= cmplx.Abs(any(target).(complex128)) {
+					nextCentroidIdx = i
+					break search
+				}
 			}
 		}
 
@@ -914,7 +919,7 @@ func (a *V[T]) ClusterKMeansPlusPlus(seed int64, k int, maxIterations int) []int
 					}
 				}
 			case complex128:
-				minDist = math.MaxFloat32
+				m = math.MaxFloat64
 				for i, c := range centroids {
 					dist := squaredDistance(p, c)
 					if d := cmplx.Abs(any(dist).(complex128)); d < cmplx.Abs(m) {
