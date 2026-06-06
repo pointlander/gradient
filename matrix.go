@@ -397,22 +397,22 @@ func (a *V[T]) Softplus() *V[T] {
 // Everett computes the split reality activation function
 func (a *V[T]) Everett() *V[T] {
 	c := NewV[T](2*a.S[0], a.S[1])
-	for _, j := range a.X {
-		switch tax := any(j).(type) {
+	for _, ax := range a.X {
+		switch ax := any(ax).(type) {
 		case float32:
-			min, max := max(tax, 0), min(tax, 0)
-			c.X = append(c.X, any(max).(T), any(min).(T))
+			a, b := min(ax, 0), max(ax, 0)
+			c.X = append(c.X, any(a).(T), any(b).(T))
 		case float64:
-			min, max := max(tax, 0), min(tax, 0)
-			c.X = append(c.X, any(max).(T), any(min).(T))
+			a, b := min(ax, 0), max(ax, 0)
+			c.X = append(c.X, any(a).(T), any(b).(T))
 		case complex64:
-			rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-			imin, imax := max(imag(tax), 0), min(imag(tax), 0)
-			c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
+			ra, rb := min(real(ax), 0), max(real(ax), 0)
+			ia, ib := min(imag(ax), 0), max(imag(ax), 0)
+			c.X = append(c.X, any(complex(ra, ia)).(T), any(complex(rb, ib)).(T))
 		case complex128:
-			rmin, rmax := max(real(tax), 0), min(real(tax), 0)
-			imin, imax := max(imag(tax), 0), min(imag(tax), 0)
-			c.X = append(c.X, any(complex(rmax, imax)).(T), any(complex(rmin, imin)).(T))
+			ra, rb := min(real(ax), 0), max(real(ax), 0)
+			ia, ib := min(imag(ax), 0), max(imag(ax), 0)
+			c.X = append(c.X, any(complex(ra, ia)).(T), any(complex(rb, ib)).(T))
 		}
 	}
 	return c
