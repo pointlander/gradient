@@ -164,6 +164,31 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 	return false
 }
 
+// Euclidean computes the euclidean distance between all row vectors and all row vectors
+func (context *Context[T]) Euclidean(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
+	width := a.S[0]
+	sizeA, sizeB := len(a.X), len(b.X)
+	c := a.Euclidean(b)
+	if k(c) {
+		return true
+	}
+	index := 0
+	for i := 0; i < sizeA; i += width {
+		for ii := 0; ii < sizeB; ii += width {
+			av, bv, cx, ad, bd, d := a.X[i:i+width], b.X[ii:ii+width], c.X[index], a.D[i:i+width], b.D[ii:ii+width], c.D[index]
+			for j, ax := range av {
+				if cx == 0 {
+					continue
+				}
+				ad[j] += (ax - bv[j]) * d / cx
+				bd[j] += (bv[j] - ax) * d / cx
+			}
+			index++
+		}
+	}
+	return false
+}
+
 // Hadamard computes the hadamard product of two tensors
 func (context *Context[T]) Hadamard(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	length := len(b.X)

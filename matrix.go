@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/cmplx"
 	"math/rand"
+	"sort"
 )
 
 // NewV create a new tensor value
@@ -207,6 +208,29 @@ func (a *V[T]) Hadamard(b *V[T]) *V[T] {
 	c := NewV[T](a.S...)
 	for i, j := range a.X {
 		c.X = append(c.X, j*b.X[i%length])
+	}
+	return c
+}
+
+// Euclidean computes the distance between all row vectors
+func (a *V[T]) Euclidean(b *V[T]) *V[T] {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] || a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	c, sizeA, sizeB := NewV[T](a.S[1], b.S[1]), len(a.X), len(b.X)
+	for i := 0; i < sizeA; i += width {
+		for ii := 0; ii < sizeB; ii += width {
+			av, bv, sum := a.X[i:i+width], b.X[ii:ii+width], T(0.0)
+			for j, ax := range av {
+				diff := (ax - bv[j])
+				sum += diff * diff
+			}
+			c.X = append(c.X, Sqrt(sum))
+		}
 	}
 	return c
 }
@@ -1009,4 +1033,159 @@ func (a *V[T]) ClusterKMeansPlusPlusMeta(seed int64, k int, maxIterations, sampl
 		panic("clustering failed")
 	}
 	return clusters
+}
+
+// ClusterPageRank clusters some points
+func (a *V[T]) ClusterPageRank(k int) ([]uint64, uint64) {
+	type Point struct {
+		Index   int
+		Coord   []T
+		Count   uint64
+		Cluster uint64
+	}
+	points := make([]Point, a.S[1])
+	for i := range a.S[1] {
+		points[i].Index = i
+		points[i].Coord = a.X[i*a.S[0] : i*a.S[0]+a.S[0]]
+	}
+	distribution := make([][]T, a.S[1])
+	mean := T(0.0)
+	count := T(0.0)
+	stddev := T(0.0)
+	for i := range distribution {
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			mean += distance
+			count++
+		}
+	}
+	mean /= count
+	for i := range distribution {
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			diff := mean - distance
+			stddev += diff * diff
+		}
+	}
+	stddev = stddev / count
+
+	for i := range distribution {
+		distribution[i] = make([]T, a.S[1])
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			distribution[i][ii] = Exp(-distance/(2*stddev)) / Sqrt(2*math.Pi*stddev)
+		}
+		sum := T(0.0)
+		for _, value := range distribution[i] {
+			sum += value
+		}
+		for ii := range distribution[i] {
+			if sum == 0 {
+				continue
+			}
+			distribution[i][ii] /= sum
+		}
+	}
+	rng := rand.New(rand.NewSource(1))
+	current := 0
+	for range a.S[1] * 1024 {
+		selected, total := Convert[T](rng.Float64()), T(0.0)
+	outer:
+		for i, value := range distribution[current] {
+			total += value
+			switch selected := any(selected).(type) {
+			case float32:
+				if selected < any(total).(float32) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case float64:
+				if selected < any(total).(float64) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case complex64:
+				if cmplx.Abs(complex128(selected)) < cmplx.Abs(complex128(any(total).(complex64))) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case complex128:
+				if cmplx.Abs(selected) < cmplx.Abs(any(total).(complex128)) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			}
+		}
+	}
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].Count > points[j].Count
+	})
+	variance := func(points []Point) float64 {
+		sum := 0.0
+		for i := range points {
+			sum += float64(points[i].Count)
+		}
+		avg := sum / float64(len(points))
+		v := 0.0
+		for i := range points {
+			diff := avg - float64(points[i].Count)
+			v += diff * diff
+		}
+		return v / float64(len(points))
+	}
+	varab := variance(points)
+	max, index := 0.0, 0
+	for i := 1; i < len(points)-1; i++ {
+		vara, varb := variance(points[0:i]), variance(points[i:len(points)])
+		if diff := varab - (vara + varb); diff > max {
+			max, index = diff, i
+		}
+	}
+	centers := points[0:k]
+	members := points[k:]
+	for i := range members {
+		max := T(0.0)
+		for ii := range centers {
+			distance := distribution[members[i].Index][centers[ii].Index]
+			switch dist := any(distance).(type) {
+			case float32:
+				if dist > any(max).(float32) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case float64:
+				if dist > any(max).(float64) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case complex64:
+				if cmplx.Abs(complex128(dist)) > cmplx.Abs(complex128(any(max).(complex64))) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case complex128:
+				if cmplx.Abs(dist) > cmplx.Abs(any(max).(complex128)) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			}
+		}
+	}
+	clusters := make([]uint64, a.S[1])
+	for i := range points {
+		clusters[points[i].Index] = points[i].Cluster
+	}
+	return clusters, uint64(index)
 }
