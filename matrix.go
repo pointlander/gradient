@@ -130,8 +130,8 @@ func (a *V[T]) Sub(b *V[T]) *V[T] {
 	return c
 }
 
-// Mul multiplies two tensors
-func (a *V[T]) Mul(b *V[T]) *V[T] {
+// MulT multiplies two tensors
+func (a *V[T]) MulT(b *V[T]) *V[T] {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -165,8 +165,8 @@ func (a *V[T]) Mul(b *V[T]) *V[T] {
 	return c
 }
 
-// Square squares a tensor
-func (a *V[T]) Square() *V[T] {
+// SquareT squares a tensor
+func (a *V[T]) SquareT() *V[T] {
 	b := a
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")

@@ -55,7 +55,7 @@ func (context *Context[T]) Sub(k Continuation[T], node int, a, b *V[T], options 
 func (context *Context[T]) Mul(k Continuation[T], node int, a, b *V[T], options ...map[string]interface{}) bool {
 	width := a.S[0]
 	sizeA, sizeB := len(a.X), len(b.X)
-	c := a.Mul(b)
+	c := a.MulT(b)
 	if k(c) {
 		return true
 	}
@@ -119,7 +119,7 @@ func (context *Context[T]) Square(k Continuation[T], node int, a *V[T], options 
 	b := a
 	width := a.S[0]
 	sizeA, sizeB := len(a.X), len(b.X)
-	c := a.Square()
+	c := a.SquareT()
 	if k(c) {
 		return true
 	}
