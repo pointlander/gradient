@@ -323,6 +323,21 @@ func (a *V[T]) Dropout(drop float64, drops []int) *V[T] {
 	return c
 }
 
+// DropoutMatrix is a dropout regularization function
+func (a *V[T]) DropoutMatrix(drop float64, drops []int) *V[T] {
+	size, width := len(a.X), a.S[0]
+	c, factor := NewV[T](a.S...), Convert[T](1.0/(1.0-drop))
+	c.X = c.X[:cap(c.X)]
+	for i := 0; i < size; i += width {
+		for j, ax := range a.X[i : i+width] {
+			if drops[i+j] == 1 {
+				c.X[i+j] = ax * factor
+			}
+		}
+	}
+	return c
+}
+
 // Sin the sine of a number
 func (a *V[T]) Sin() *V[T] {
 	c := NewV[T](a.S...)

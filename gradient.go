@@ -362,6 +362,34 @@ func (context *Context[T]) Dropout(k Continuation[T], node int, a *V[T], options
 	return false
 }
 
+// DropoutMatrix is a dropout regularization function
+func (context *Context[T]) DropoutMatrix(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
+	size, width := len(a.X), a.S[0]
+	rng := options[0]["rng"].(*rand.Rand)
+	drop := .1
+	if options[0]["drop"] != nil {
+		drop = *options[0]["drop"].(*float64)
+	}
+	drops := make([]int, size)
+	for i := range drops {
+		if rng.Float64() > drop {
+			drops[i] = 1
+		}
+	}
+	c := a.DropoutMatrix(drop, drops)
+	if k(c) {
+		return true
+	}
+	for i := 0; i < size; i += width {
+		for j := range a.D[i : i+width] {
+			if drops[i+j] == 1 {
+				a.D[i+j] += c.D[i+j]
+			}
+		}
+	}
+	return false
+}
+
 // Sin the sine of a number
 func (context *Context[T]) Sin(k Continuation[T], node int, a *V[T], options ...map[string]interface{}) bool {
 	c := a.Sin()
